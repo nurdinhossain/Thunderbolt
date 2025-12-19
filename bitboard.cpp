@@ -85,15 +85,3 @@ bool test_bitboard()
 
     return result;
 }
-
-int main()
-{
-    // run testing script
-    bool bitboard_test_result = test_bitboard();
-    if (bitboard_test_result == true)
-    {
-        cout << "Bitboard testing suite passed!" << endl;
-    }
-
-    return 0;
-}

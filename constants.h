@@ -1,4 +1,11 @@
 #pragma once
+#include "bitboard.h"
+
+// constants
+#define NUM_SQUARES 64
+#define NUM_RANKS 8
+#define NUM_FILES 8
+#define NUM_COLORS 2
 
 // colors
 typedef enum Color {
@@ -17,3 +24,41 @@ typedef enum Square {
     h7, g7, f7, e7, d7, c7, b7, a7,
     h8, g8, f8, e8, d8, c8, b8, a8
 } Square;
+
+// ranks
+typedef enum Rank {
+    rank_1, rank_2, rank_3, rank_4, rank_5, rank_6, rank_7, rank_8
+} Rank;
+
+// files
+typedef enum File {
+    file_h, file_g, file_f, file_e, file_d, file_c, file_b, file_a
+} File;
+
+// rank bitboards
+extern u64 rank_masks[NUM_RANKS];
+extern u64 rank_neighbor_masks[NUM_RANKS];
+
+// file bitboards
+extern u64 file_masks[NUM_FILES];
+extern u64 file_neighbor_masks[NUM_FILES];
+
+// pawn bitboard attacks
+extern u64 pawn_attacks[NUM_COLORS][NUM_SQUARES];
+
+// knight bitboard attacks
+extern u64 knight_attacks[NUM_SQUARES];
+
+// king bitboard attacks
+extern u64 king_attacks[NUM_SQUARES];
+
+// generate static masks
+void generate_static_masks();
+
+// generate static attacks
+void generate_pawn_attacks();
+void generate_knight_attacks();
+void generate_king_attacks();
+
+// generate all static bitboards
+void generate_static_bitboards();
