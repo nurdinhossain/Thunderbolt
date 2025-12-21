@@ -64,18 +64,18 @@ void generate_pawn_attacks()
 }
 void generate_knight_attacks()
 {
+    int rank_offset[8] = {1, -1, 2, -2, 2, -2, 1, -1};
+    int file_offset[8] = {-2, -2, -1, -1, 1, 1, 2, 2};
+
     for (int sq = 0; sq < NUM_SQUARES; sq++)
     {
         int rank = sq / NUM_FILES;
         int file = sq % NUM_FILES;
-
-        int possible_next_ranks[8] = {rank+1, rank-1, rank+2, rank-2, rank+2, rank-2, rank+1, rank-1};
-        int possible_next_files[8] = {file-2, file-2, file-1, file-1, file+1, file+1, file+2, file+2};
         
         for (int i = 0; i < 8; i++)
         {
-            int chosen_rank = possible_next_ranks[i];
-            int chosen_file = possible_next_files[i];
+            int chosen_rank = rank + rank_offset[i];
+            int chosen_file = file + file_offset[i];
 
             if (chosen_rank >= 0 && chosen_rank < NUM_RANKS && chosen_file >= 0 && chosen_file < NUM_FILES) knight_attacks[sq] |= (1ULL << (chosen_rank * NUM_FILES + chosen_file));
         }
