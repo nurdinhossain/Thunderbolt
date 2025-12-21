@@ -1,4 +1,5 @@
 #include "sliding.h"
+#include <time.h>
 #include <iostream>
 using namespace std; 
 
@@ -80,21 +81,82 @@ void generate_bishop_magics()
             chosen++;
         }
 
-        // 
+        // generate magic numbers
+        bool magic_valid = false;
+        u64 magic;
+        while (!magic_valid)
+        {
+            // generate random magic
+            magic_valid = true;
+            magic = rng();
+
+            // clear bishop attack table
+            for (int i = 0; i < 1ULL << BISHOP_MAGIC_BITS; i++)
+            {
+                bishop_attacks[sq][i] = 0ULL;
+            }
+
+            for (int i = 0; i < blockers.size(); i++)
+            {
+                // get blocker mask
+                u64 blocker_mask = blockers[i];
+
+                // generate appropriate attack mask for this blocker mask
+                u64 blocker_attack_mask = 0ULL;
+                for (int i = 0; i < 4; i++)
+                {
+                    int temp_rank = rank; 
+                    int temp_file = file;
+
+                    while (temp_rank >= 0 && temp_rank < NUM_RANKS && temp_file >= 0 && temp_file < NUM_FILES)
+                    {
+                        blocker_attack_mask ^= (1ULL << (temp_rank * NUM_FILES + temp_file));
+
+                        if ((blocker_mask & (1ULL << (temp_rank * NUM_FILES + temp_file))) > 0) break;
+
+                        temp_rank += rank_offsets[i];
+                        temp_file += file_offsets[i];
+                    }
+                }
+
+                // see if this hashes properly
+                u64 index = (blocker_mask * magic) >> (64 - BISHOP_MAGIC_BITS);
+                if (bishop_attacks[sq][index] == 0)
+                {
+                    bishop_attacks[sq][index] = blocker_attack_mask;
+                }
+                else if (bishop_attacks[sq][index] != blocker_attack_mask)
+                {
+                    magic_valid = false;
+                    break;
+                }
+            }
+        }
+
+        bishop_magics[sq] = magic;
+        cout << "Bishop magic for square " << sq << " generated." << endl;
     }
+    cout << endl;
 }
 
 void generate_rook_magics();
+
+// functions to get sliding attacks using magic number
+u64 get_bishop_attack(int square, u64 blockers)
+{
+    u64 index = (blockers * bishop_magics[square]) >> (64 - BISHOP_MAGIC_BITS);
+    return bishop_attacks[square][index];
+}
+u64 get_rook_attack(int square, u64 blockers)
+{
+    u64 index = (blockers * rook_magics[square]) >> (64 - ROOK_MAGIC_BITS);
+    return rook_attacks[square][index];
+}
 
 int main()
 {
     generate_static_bitboards();
     generate_bishop_magics();
 
-    for (int i = 0; i < 5000; i++)
-    {
-        cout << (rng() >> (64 - 5)) << ", ";
-    }
-    cout << endl;
     return 0;
 }

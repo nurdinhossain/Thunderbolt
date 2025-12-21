@@ -2,7 +2,7 @@
 #include "bitboard.h"
 #include "constants.h"
 #include <vector>
-#define BISHOP_MAGIC_BITS 14
+#define BISHOP_MAGIC_BITS 11
 #define ROOK_MAGIC_BITS 14
 using namespace std;
 
@@ -23,3 +23,7 @@ u64 rng();
 // functions to generate magics
 void generate_bishop_magics();
 void generate_rook_magics();
+
+// functions to get sliding attacks using magic number
+u64 get_bishop_attack(int square, u64 blockers);
+u64 get_rook_attack(int square, u64 blockers);
