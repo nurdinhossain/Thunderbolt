@@ -25,6 +25,11 @@ typedef enum Square {
     h8, g8, f8, e8, d8, c8, b8, a8
 } Square;
 
+// pieces
+typedef enum Piece {
+    pawn, knight, bishop, rook, queen, king 
+} Piece;
+
 // ranks
 typedef enum Rank {
     rank_1, rank_2, rank_3, rank_4, rank_5, rank_6, rank_7, rank_8
@@ -55,9 +60,13 @@ extern u64 king_attacks[NUM_SQUARES];
 // generate static masks
 void generate_static_masks();
 
-// generate static attacks
+// pawn attack
 void generate_pawn_attacks();
+
+// knight attack
 void generate_knight_attacks();
+
+// king attack
 void generate_king_attacks();
 
 // generate all static bitboards

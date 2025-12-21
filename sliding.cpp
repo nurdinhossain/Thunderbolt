@@ -3,18 +3,14 @@
 #include <iostream>
 using namespace std; 
 
-// store magic numbers for bishop and rook
 u64 bishop_magics[NUM_SQUARES] = {0};
 u64 rook_magics[NUM_SQUARES] = {0};
 
-// store attack tables for bishop and rook
 u64 bishop_attacks[NUM_SQUARES][1ULL << BISHOP_MAGIC_BITS] = {0};
 u64 rook_attacks[NUM_SQUARES][1ULL << ROOK_MAGIC_BITS] = {0};
 
-// seed for rng
 u64 seed = 1;
 
-// XOR-shift function for random number generation
 u64 rng()
 {
     seed ^= (seed << 5);
@@ -24,12 +20,33 @@ u64 rng()
     return seed;
 }
 
-// functions to generate magics
-void generate_bishop_magics()
+void generate_magics(Piece piece)
 {
-    // offsets
+    // validity checking
+    if (piece != bishop && piece != rook)
+    {
+        cout << "invalid piece for generating magics. Try again." << endl;
+        return;
+    }
+
+    // tweak params based on inputted piece
     int rank_offsets[4] = {1, 1, -1, -1};
     int file_offsets[4] = {1, -1, 1, -1};
+    int bits = BISHOP_MAGIC_BITS;
+
+    if (piece == rook)
+    {
+        rank_offsets[0] = 0;
+        file_offsets[0] = -1;
+        rank_offsets[1] = 0;
+        file_offsets[1] = 1;
+        rank_offsets[2] = -1;
+        file_offsets[2] = 0;
+        rank_offsets[3] = 1;
+        file_offsets[3] = 0;
+
+        bits = ROOK_MAGIC_BITS;
+    }
 
     for (int sq = 0; sq < NUM_SQUARES; sq++)
     {
@@ -51,7 +68,15 @@ void generate_bishop_magics()
                 temp_file += file_offsets[i];
             }
         }
-        full_attack_mask &= ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_1] | rank_masks[rank_8]);
+        if (sq == h1) full_attack_mask &= ~(file_masks[file_a] | rank_masks[rank_8]);
+        else if (sq == a1) full_attack_mask &= ~(file_masks[file_h] | rank_masks[rank_8]);
+        else if (sq == h8) full_attack_mask &= ~(file_masks[file_a] | rank_masks[rank_1]);
+        else if (sq == a8) full_attack_mask &= ~(file_masks[file_h] | rank_masks[rank_1]);
+        else if (rank == rank_1) full_attack_mask &= ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_8]);
+        else if (rank == rank_8) full_attack_mask &= ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_1]);
+        else if (file == file_a) full_attack_mask &= ~(file_masks[file_h] | rank_masks[rank_1] | rank_masks[rank_8]);
+        else if (file == file_h) full_attack_mask &= ~(file_masks[file_a] | rank_masks[rank_1] | rank_masks[rank_8]);
+        else full_attack_mask &= ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_1] | rank_masks[rank_8]);
 
         // collect every index that a blocker could occupy
         vector<int> potential_blocker_indices;
@@ -81,6 +106,35 @@ void generate_bishop_magics()
             chosen++;
         }
 
+        // generate the attack set for each blocker board
+        vector<u64> attacks;
+        for (int i = 0; i < blockers.size(); i++)
+        {
+            // get blocker mask
+            u64 blocker_mask = blockers[i];
+
+            // generate appropriate attack mask for this blocker mask
+            u64 blocker_attack_mask = 0ULL;
+            for (int i = 0; i < 4; i++)
+            {
+                int temp_rank = rank; 
+                int temp_file = file;
+
+                while (temp_rank >= 0 && temp_rank < NUM_RANKS && temp_file >= 0 && temp_file < NUM_FILES)
+                {
+                    blocker_attack_mask ^= (1ULL << (temp_rank * NUM_FILES + temp_file));
+
+                    if ((blocker_mask & (1ULL << (temp_rank * NUM_FILES + temp_file))) > 0) break;
+
+                    temp_rank += rank_offsets[i];
+                    temp_file += file_offsets[i];
+                }
+            }
+
+            // add blocker attack mask to array 
+            attacks.push_back(blocker_attack_mask);
+        }
+        
         // generate magic numbers
         bool magic_valid = false;
         u64 magic;
@@ -90,10 +144,11 @@ void generate_bishop_magics()
             magic_valid = true;
             magic = rng();
 
-            // clear bishop attack table
-            for (int i = 0; i < 1ULL << BISHOP_MAGIC_BITS; i++)
+            // clear attack table
+            for (int i = 0; i < 1ULL << bits; i++)
             {
-                bishop_attacks[sq][i] = 0ULL;
+                if (piece == rook) rook_attacks[sq][i] = 0ULL;
+                else bishop_attacks[sq][i] = 0ULL;
             }
 
             for (int i = 0; i < blockers.size(); i++)
@@ -101,47 +156,47 @@ void generate_bishop_magics()
                 // get blocker mask
                 u64 blocker_mask = blockers[i];
 
-                // generate appropriate attack mask for this blocker mask
-                u64 blocker_attack_mask = 0ULL;
-                for (int i = 0; i < 4; i++)
-                {
-                    int temp_rank = rank; 
-                    int temp_file = file;
-
-                    while (temp_rank >= 0 && temp_rank < NUM_RANKS && temp_file >= 0 && temp_file < NUM_FILES)
-                    {
-                        blocker_attack_mask ^= (1ULL << (temp_rank * NUM_FILES + temp_file));
-
-                        if ((blocker_mask & (1ULL << (temp_rank * NUM_FILES + temp_file))) > 0) break;
-
-                        temp_rank += rank_offsets[i];
-                        temp_file += file_offsets[i];
-                    }
-                }
+                // get attack mask
+                u64 blocker_attack_mask = attacks[i];
 
                 // see if this hashes properly
-                u64 index = (blocker_mask * magic) >> (64 - BISHOP_MAGIC_BITS);
-                if (bishop_attacks[sq][index] == 0)
+                u64 index = (blocker_mask * magic) >> (64 - bits);
+
+                if (piece == rook)
                 {
-                    bishop_attacks[sq][index] = blocker_attack_mask;
+                    if (rook_attacks[sq][index] == 0)
+                    {
+                        rook_attacks[sq][index] = blocker_attack_mask;
+                    }
+                    else if (rook_attacks[sq][index] != blocker_attack_mask)
+                    {
+                        magic_valid = false;
+                        break;
+                    }
                 }
-                else if (bishop_attacks[sq][index] != blocker_attack_mask)
+                else 
                 {
-                    magic_valid = false;
-                    break;
+                    if (bishop_attacks[sq][index] == 0)
+                    {
+                        bishop_attacks[sq][index] = blocker_attack_mask;
+                    }
+                    else if (bishop_attacks[sq][index] != blocker_attack_mask)
+                    {
+                        magic_valid = false;
+                        break;
+                    }
                 }
             }
         }
 
-        bishop_magics[sq] = magic;
-        cout << "Bishop magic for square " << sq << " generated." << endl;
+        if (piece == rook) rook_magics[sq] = magic;
+        else bishop_magics[sq] = magic;
     }
-    cout << endl;
+
+    if (piece == rook) cout << "Rook magics generated." << endl;
+    else cout << "Bishop magics generated." << endl;
 }
 
-void generate_rook_magics();
-
-// functions to get sliding attacks using magic number
 u64 get_bishop_attack(int square, u64 blockers)
 {
     u64 index = (blockers * bishop_magics[square]) >> (64 - BISHOP_MAGIC_BITS);
@@ -156,7 +211,15 @@ u64 get_rook_attack(int square, u64 blockers)
 int main()
 {
     generate_static_bitboards();
-    generate_bishop_magics();
+    generate_magics(bishop);
+    generate_magics(rook);
+
+    Square sq = c5;
+    u64 blockers = 0ULL;
+    blockers = toggle_bit(blockers, c2);
+    blockers = toggle_bit(blockers, f5);
+    display(blockers);
+    display(get_rook_attack(sq, blockers));
 
     return 0;
 }

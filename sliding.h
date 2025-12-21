@@ -20,10 +20,11 @@ extern u64 seed;
 // function to generate random number
 u64 rng();
 
-// functions to generate magics
-void generate_bishop_magics();
-void generate_rook_magics();
+// function to generate magics
+void generate_magics(Piece piece);
 
-// functions to get sliding attacks using magic number
+// bishop magic attack
 u64 get_bishop_attack(int square, u64 blockers);
+
+// rook magic attack
 u64 get_rook_attack(int square, u64 blockers);

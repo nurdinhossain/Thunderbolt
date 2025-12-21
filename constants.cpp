@@ -11,7 +11,6 @@ u64 pawn_attacks[NUM_COLORS][NUM_SQUARES] = {0};
 u64 knight_attacks[NUM_SQUARES] = {0};
 u64 king_attacks[NUM_SQUARES] = {0};
 
-// functions to generate static masks
 void generate_static_masks()
 {
     // generate file and rank masks simultaneously
@@ -40,7 +39,6 @@ void generate_static_masks()
     }
 }
 
-// functions to generate static attack arrays
 void generate_pawn_attacks()
 {
     for (int wsq = 0; wsq < 56; wsq++)
