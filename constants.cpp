@@ -1,15 +1,16 @@
 #include "constants.h"
 
-// static mask arrays
 u64 rank_masks[NUM_RANKS] = {0};
 u64 rank_neighbor_masks[NUM_RANKS] = {0};
 u64 file_masks[NUM_FILES] = {0};
 u64 file_neighbor_masks[NUM_FILES] = {0};
 
-// static attack arrays
 u64 pawn_attacks[NUM_COLORS][NUM_SQUARES] = {0}; 
 u64 knight_attacks[NUM_SQUARES] = {0};
 u64 king_attacks[NUM_SQUARES] = {0};
+u64 rook_masks[NUM_SQUARES] = {0};
+u64 bishop_masks[NUM_SQUARES] = {0};
+u64 sliding_masks[NUM_SQUARES] = {0};
 
 void generate_static_masks()
 {
@@ -91,16 +92,82 @@ void generate_king_attacks()
     }
 }
 
-// generate all static bitboards
+void generate_rook_masks()
+{
+    for (int sq = 0; sq < NUM_SQUARES; sq++)
+    {
+        int rank = sq / NUM_FILES;
+        int file = sq % NUM_FILES;
+
+        u64 mask = (rank_masks[rank] | file_masks[file]) ^ (1ULL << sq);
+        rook_masks[sq] = mask;
+    }
+}
+
+void generate_bishop_masks()
+{
+    int rank_offsets[4] = {1, 1, -1, -1};
+    int file_offsets[4] = {1, -1, 1, -1};
+
+    for (int sq = 0; sq < NUM_SQUARES; sq++)
+    {
+        int rank = sq / NUM_FILES;
+        int file = sq % NUM_FILES;
+        u64 full_attack_mask = 0ULL;
+
+        for (int i = 0; i < 4; i++)
+        {
+            int temp_rank = rank; 
+            int temp_file = file;
+
+            while (temp_rank >= 0 && temp_rank < NUM_RANKS && temp_file >= 0 && temp_file < NUM_FILES)
+            {
+                full_attack_mask ^= (1ULL << (temp_rank * NUM_FILES + temp_file));
+                temp_rank += rank_offsets[i];
+                temp_file += file_offsets[i];
+            }
+        }
+
+        bishop_masks[sq] = full_attack_mask;
+    }
+}
+
+void generate_sliding_masks()
+{
+    for (int sq = 0; sq < NUM_SQUARES; sq++)
+    {
+        int rank = sq / NUM_FILES;
+        int file = sq % NUM_FILES;
+        u64 mask = 0ULL;
+
+        if (sq == h1) mask = ~(file_masks[file_a] | rank_masks[rank_8]);
+        else if (sq == a1) mask = ~(file_masks[file_h] | rank_masks[rank_8]);
+        else if (sq == h8) mask = ~(file_masks[file_a] | rank_masks[rank_1]);
+        else if (sq == a8) mask = ~(file_masks[file_h] | rank_masks[rank_1]);
+        else if (rank == rank_1) mask = ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_8]);
+        else if (rank == rank_8) mask = ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_1]);
+        else if (file == file_a) mask = ~(file_masks[file_h] | rank_masks[rank_1] | rank_masks[rank_8]);
+        else if (file == file_h) mask = ~(file_masks[file_a] | rank_masks[rank_1] | rank_masks[rank_8]);
+        else mask = ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_1] | rank_masks[rank_8]);
+
+        sliding_masks[sq] = mask;
+    }
+}
+
 void generate_static_bitboards()
 {
     /*
     order:
         pawn_attacks depends on king_attacks, which depends on file_masks, rank_masks, and the neighbor masks
         knight_attacks is independent of all other masks and can be generated at any place in this order
+        rook_masks depends on rank_masks and file_masks, and bishop_masks is independent of all other masks
+        sliding_masks depends on file_masks and rank_masks
     */
     generate_static_masks();
     generate_king_attacks();
     generate_pawn_attacks();
     generate_knight_attacks();
+    generate_rook_masks();
+    generate_bishop_masks();
+    generate_sliding_masks();
 }

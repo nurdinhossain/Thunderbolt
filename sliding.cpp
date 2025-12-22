@@ -13,10 +13,9 @@ u64 seed = 1;
 
 u64 rng()
 {
-    seed ^= (seed << 5);
-    seed ^= (seed << 17);
-    seed ^= (seed >> 3);
-    seed ^= (seed << 11);
+    seed ^= (seed << 13);
+    seed ^= (seed << 7);
+    seed ^= (seed >> 17);
     return seed;
 }
 
@@ -32,6 +31,7 @@ void generate_magics(Piece piece)
     // tweak params based on inputted piece
     int rank_offsets[4] = {1, 1, -1, -1};
     int file_offsets[4] = {1, -1, 1, -1};
+    u64* piece_masks = bishop_masks;
     int bits = BISHOP_MAGIC_BITS;
 
     if (piece == rook)
@@ -44,7 +44,8 @@ void generate_magics(Piece piece)
         file_offsets[2] = 0;
         rank_offsets[3] = 1;
         file_offsets[3] = 0;
-
+        
+        piece_masks = rook_masks;
         bits = ROOK_MAGIC_BITS;
     }
 
@@ -55,28 +56,7 @@ void generate_magics(Piece piece)
         int file = sq % NUM_FILES;
 
         // generate full attack paths for this square
-        u64 full_attack_mask = 0ULL;
-        for (int i = 0; i < 4; i++)
-        {
-            int temp_rank = rank; 
-            int temp_file = file;
-
-            while (temp_rank >= 0 && temp_rank < NUM_RANKS && temp_file >= 0 && temp_file < NUM_FILES)
-            {
-                full_attack_mask ^= (1ULL << (temp_rank * NUM_FILES + temp_file));
-                temp_rank += rank_offsets[i];
-                temp_file += file_offsets[i];
-            }
-        }
-        if (sq == h1) full_attack_mask &= ~(file_masks[file_a] | rank_masks[rank_8]);
-        else if (sq == a1) full_attack_mask &= ~(file_masks[file_h] | rank_masks[rank_8]);
-        else if (sq == h8) full_attack_mask &= ~(file_masks[file_a] | rank_masks[rank_1]);
-        else if (sq == a8) full_attack_mask &= ~(file_masks[file_h] | rank_masks[rank_1]);
-        else if (rank == rank_1) full_attack_mask &= ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_8]);
-        else if (rank == rank_8) full_attack_mask &= ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_1]);
-        else if (file == file_a) full_attack_mask &= ~(file_masks[file_h] | rank_masks[rank_1] | rank_masks[rank_8]);
-        else if (file == file_h) full_attack_mask &= ~(file_masks[file_a] | rank_masks[rank_1] | rank_masks[rank_8]);
-        else full_attack_mask &= ~(file_masks[file_a] | file_masks[file_h] | rank_masks[rank_1] | rank_masks[rank_8]);
+        u64 full_attack_mask = sliding_masks[sq] & piece_masks[sq];
 
         // collect every index that a blocker could occupy
         vector<int> potential_blocker_indices;
@@ -199,13 +179,20 @@ void generate_magics(Piece piece)
 
 u64 get_bishop_attack(int square, u64 blockers)
 {
+    blockers &= sliding_masks[square] & bishop_masks[square];
     u64 index = (blockers * bishop_magics[square]) >> (64 - BISHOP_MAGIC_BITS);
     return bishop_attacks[square][index];
 }
 u64 get_rook_attack(int square, u64 blockers)
 {
+    blockers &= sliding_masks[square] & rook_masks[square];
     u64 index = (blockers * rook_magics[square]) >> (64 - ROOK_MAGIC_BITS);
     return rook_attacks[square][index];
+}
+
+u64 get_queen_attack(int square, u64 blockers)
+{
+    return get_rook_attack(square, blockers) | get_bishop_attack(square, blockers);
 }
 
 int main()
@@ -214,12 +201,14 @@ int main()
     generate_magics(bishop);
     generate_magics(rook);
 
-    Square sq = c5;
+    Square sq = h7;
     u64 blockers = 0ULL;
     blockers = toggle_bit(blockers, c2);
     blockers = toggle_bit(blockers, f5);
+    blockers = toggle_bit(blockers, f6);
+    blockers = toggle_bit(blockers, f7);
     display(blockers);
-    display(get_rook_attack(sq, blockers));
+    display(get_queen_attack(sq, blockers));
 
     return 0;
 }

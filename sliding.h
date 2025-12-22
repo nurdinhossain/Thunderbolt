@@ -28,3 +28,6 @@ u64 get_bishop_attack(int square, u64 blockers);
 
 // rook magic attack
 u64 get_rook_attack(int square, u64 blockers);
+
+// queen attack = rook attack + bishop attack
+u64 get_queen_attack(int square, u64 blockers);

@@ -57,6 +57,15 @@ extern u64 knight_attacks[NUM_SQUARES];
 // king bitboard attacks
 extern u64 king_attacks[NUM_SQUARES];
 
+// rook static masks
+extern u64 rook_masks[NUM_SQUARES];
+
+// bishop static masks
+extern u64 bishop_masks[NUM_SQUARES];
+
+// sliding attack masks
+extern u64 sliding_masks[NUM_SQUARES];
+
 // generate static masks
 void generate_static_masks();
 
@@ -68,6 +77,15 @@ void generate_knight_attacks();
 
 // king attack
 void generate_king_attacks();
+
+// rook mask
+void generate_rook_masks();
+
+// bishop mask
+void generate_bishop_masks();
+
+// sliding mask generation
+void generate_sliding_masks();
 
 // generate all static bitboards
 void generate_static_bitboards();
