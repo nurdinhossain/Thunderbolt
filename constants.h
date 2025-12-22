@@ -27,7 +27,7 @@ typedef enum Square {
 
 // pieces
 typedef enum Piece {
-    pawn, knight, bishop, rook, queen, king 
+    pawn, knight, bishop, rook, queen, king, none
 } Piece;
 
 // ranks
