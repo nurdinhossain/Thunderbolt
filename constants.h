@@ -5,6 +5,7 @@
 #define NUM_SQUARES 64
 #define NUM_RANKS 8
 #define NUM_FILES 8
+#define NUM_PIECES 6
 #define NUM_COLORS 2
 
 // colors

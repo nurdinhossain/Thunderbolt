@@ -1,6 +1,6 @@
 #include "sliding.h"
 #include <iostream>
-using namespace std; 
+using namespace std;
 
 u64 bishop_magics[NUM_SQUARES] = {0};
 u64 rook_magics[NUM_SQUARES] = {0};
@@ -192,22 +192,4 @@ u64 get_rook_attack(int square, u64 blockers)
 u64 get_queen_attack(int square, u64 blockers)
 {
     return get_rook_attack(square, blockers) | get_bishop_attack(square, blockers);
-}
-
-int main()
-{
-    generate_static_bitboards();
-    generate_magics(bishop);
-    generate_magics(rook);
-
-    Square sq = h7;
-    u64 blockers = 0ULL;
-    blockers = toggle_bit(blockers, c2);
-    blockers = toggle_bit(blockers, f5);
-    blockers = toggle_bit(blockers, f6);
-    blockers = toggle_bit(blockers, f7);
-    display(blockers);
-    display(get_queen_attack(sq, blockers));
-
-    return 0;
 }
