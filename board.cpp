@@ -58,14 +58,53 @@ void Board::from_fen(string fen)
     }
 
     // initialize side to move
+    i++;
+    if (fen[i] == 'w') side_to_move = WHITE;
+    else side_to_move = BLACK;
 
     // initialize castling rights
+    king_castle_ability[WHITE] = false;
+    king_castle_ability[BLACK] = false;
+    queen_castle_ability[WHITE] = false;
+    queen_castle_ability[BLACK] = false;
+    i += 2;
+    while (fen[i] != ' ')
+    {
+        char c = fen[i];
+        if (c == 'K') king_castle_ability[WHITE] = true;
+        else if (c == 'Q') queen_castle_ability[WHITE] = true;
+        else if (c == 'k') king_castle_ability[BLACK] = true;
+        else if (c == 'q') queen_castle_ability[BLACK] = true;
+
+        i++;
+    }
 
     // initialize en passant square
+    i++;
+    if (fen[i] != '-')
+    {
+        char file_c = fen[i];
+        char rank_c = fen[i+1];
+        Square sq = static_cast<Square>((rank_c - '1') * NUM_FILES + (file_c - 'a'));
+        en_passant_square = sq;
+
+        i += 3;
+    }
+    else 
+    {
+        en_passant_square = null;
+
+        i += 2;
+    }
 
     // initialize half moves
+    int half_move_start_index = i;
+    while (fen[i] != ' ') i++;
+    half_moves = stoi(fen.substr(half_move_start_index, i - half_move_start_index));
 
     // initialize full moves
+    i++;
+    full_moves = stoi(fen.substr(i, fen.length() - i));
 }
 
 void Board::print()
@@ -97,7 +136,7 @@ void Board::print()
 
 int main()
 {
-    Board board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -");
+    Board board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b - e3 0 1");
     board.print();
 
     return 0;
