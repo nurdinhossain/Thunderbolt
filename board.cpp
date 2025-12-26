@@ -136,8 +136,11 @@ void Board::print()
 
 int main()
 {
-    Board board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b - e3 0 1");
-    board.print();
+    generate_static_bitboards();
+    for (int i = 0; i < NUM_SQUARES; i++)
+    {
+        display(pawn_pushes[BLACK][i]);
+    }
 
     return 0;
 }

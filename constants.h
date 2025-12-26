@@ -49,8 +49,9 @@ extern u64 rank_neighbor_masks[NUM_RANKS];
 extern u64 file_masks[NUM_FILES];
 extern u64 file_neighbor_masks[NUM_FILES];
 
-// pawn bitboard attacks
+// pawn bitboard attacks and pushes
 extern u64 pawn_attacks[NUM_COLORS][NUM_SQUARES];
+extern u64 pawn_pushes[NUM_COLORS][NUM_SQUARES];
 
 // knight bitboard attacks
 extern u64 knight_attacks[NUM_SQUARES];
@@ -70,7 +71,8 @@ extern u64 sliding_masks[NUM_SQUARES];
 // generate static masks
 void generate_static_masks();
 
-// pawn attack
+// pawn push/attack
+void generate_pawn_pushes();
 void generate_pawn_attacks();
 
 // knight attack

@@ -5,6 +5,7 @@ u64 rank_neighbor_masks[NUM_RANKS] = {0};
 u64 file_masks[NUM_FILES] = {0};
 u64 file_neighbor_masks[NUM_FILES] = {0};
 
+u64 pawn_pushes[NUM_COLORS][NUM_SQUARES] = {0};
 u64 pawn_attacks[NUM_COLORS][NUM_SQUARES] = {0}; 
 u64 knight_attacks[NUM_SQUARES] = {0};
 u64 king_attacks[NUM_SQUARES] = {0};
@@ -38,6 +39,28 @@ void generate_static_masks()
         file_neighbor_masks[i] = file_masks[i-1] | file_masks[i + 1];
         rank_neighbor_masks[i] = rank_masks[i-1] | rank_masks[i + 1];
     }
+}
+
+void generate_pawn_pushes()
+{
+    for (int wsq = 8; wsq < 56; wsq++)
+    {
+        int bsq = 63 - wsq;
+
+        int wrank = wsq / NUM_FILES;
+        int wfile = wsq % NUM_FILES; 
+        int brank = bsq / NUM_FILES;
+        int bfile = bsq % NUM_FILES;
+
+        pawn_pushes[WHITE][wsq] |= (1ULL << (wsq + 8));
+        pawn_pushes[BLACK][bsq] |= (1ULL << (bsq - 8));
+
+        if (wrank == rank_2)
+        {
+            pawn_pushes[WHITE][wsq] |= (1ULL << (wsq + 16));
+            pawn_pushes[BLACK][bsq] |= (1ULL << (bsq - 16));
+        }
+    } 
 }
 
 void generate_pawn_attacks()
@@ -162,9 +185,11 @@ void generate_static_bitboards()
         knight_attacks is independent of all other masks and can be generated at any place in this order
         rook_masks depends on rank_masks and file_masks, and bishop_masks is independent of all other masks
         sliding_masks depends on file_masks and rank_masks
+        pawn_pushes is independent of all other masks
     */
     generate_static_masks();
     generate_king_attacks();
+    generate_pawn_pushes();
     generate_pawn_attacks();
     generate_knight_attacks();
     generate_rook_masks();
