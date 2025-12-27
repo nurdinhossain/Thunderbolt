@@ -29,3 +29,13 @@ typedef struct Move {
     MoveType move_type;
 } Move;
 
+typedef struct MoveList {
+    Move moves[MAX_MOVES];
+    int count = 0;
+
+    inline void add(Move m)
+    {
+        moves[count++] = m;
+    }
+} MoveList;
+

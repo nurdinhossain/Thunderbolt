@@ -1,7 +1,5 @@
 #pragma once
 #include "constants.h"
-#define BISHOP_MAGIC_BITS 11
-#define ROOK_MAGIC_BITS 14
 
 // store magic numbers for bishop and rook
 extern u64 bishop_magics[NUM_SQUARES];

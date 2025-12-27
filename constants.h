@@ -8,6 +8,11 @@
 #define NUM_PIECES 6
 #define NUM_COLORS 2
 
+#define BISHOP_MAGIC_BITS 11
+#define ROOK_MAGIC_BITS 14
+
+#define MAX_MOVES 256
+
 // colors
 typedef enum Color {
     WHITE,

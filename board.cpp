@@ -1,4 +1,5 @@
 #include "board.h"
+#include "sliding.h"
 #include <iostream>
 
 Board::Board()
@@ -107,6 +108,190 @@ void Board::from_fen(string fen)
     full_moves = stoi(fen.substr(i, fen.length() - i));
 }
 
+Piece Board::piece_at_square_for_side(Square sq, Color side)
+{
+    for (int i = 0; i < none; i++)
+    {
+        u64 occupancy = piece_occupancies[side][i];
+
+        if (((1ULL << sq) & occupancy) > 0) return static_cast<Piece>(i);
+    }
+
+    return none;
+}
+
+void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type)
+{
+    int from_rank = from_square / NUM_FILES;
+
+    while (attacked_pieces > 0)
+    {
+        // get next attacked piece
+        Square attacked_square = static_cast<Square>(lsb(attacked_pieces));
+        int attacked_rank = attacked_square / NUM_FILES;
+
+        // generate move and add to array
+        if (attacking_piece == pawn && (attacked_rank == rank_1 || attacked_rank == rank_8))
+        {
+            // promotions
+            if (type == CAPTURE)
+            {
+                moves.add({from_square, attacked_square, KNIGHT_PROMOTION_CAPTURE});
+                moves.add({from_square, attacked_square, BISHOP_PROMOTION_CAPTURE});
+                moves.add({from_square, attacked_square, ROOK_PROMOTION_CAPTURE});
+                moves.add({from_square, attacked_square, QUEEN_PROMOTION_CAPTURE});
+            }
+            else 
+            {
+                moves.add({from_square, attacked_square, KNIGHT_PROMOTION});
+                moves.add({from_square, attacked_square, BISHOP_PROMOTION});
+                moves.add({from_square, attacked_square, ROOK_PROMOTION});
+                moves.add({from_square, attacked_square, QUEEN_PROMOTION});
+            }
+        }
+
+        // double pawn push
+        else if (attacking_piece == pawn && abs(attacked_square - from_square) == 16)
+        {
+            moves.add({from_square, attacked_square, DOUBLE_PAWN_PUSH});
+        }
+
+        // standard quiet move
+        else
+        {
+            moves.add({from_square, attacked_square, type});
+        }
+
+        // reset lsb
+        attacked_pieces &= (attacked_pieces - 1);
+    }
+}
+
+void Board::generate_normal_moves(MoveList &moves, Piece moving_piece, u64 side_occupancy[2], MoveType type)
+{
+    // get occupancy for current side-to-move
+    u64 pieces = piece_occupancies[side_to_move][moving_piece];
+    Color enemy_color = static_cast<Color>(1-side_to_move);
+    u64 enemy_occupancy = side_occupancy[enemy_color];
+    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
+
+    // iterate through all pieces
+    while (pieces > 0)
+    {
+        // get next piece
+        Square piece_square = static_cast<Square>(lsb(pieces));
+        
+        // get move mask for this piece
+        u64 move_mask;
+        switch (moving_piece)
+        {
+            case pawn:
+                if (type == CAPTURE) move_mask = pawn_attacks[side_to_move][piece_square];
+                else move_mask = pawn_pushes[side_to_move][piece_square];
+                break;
+            case knight:
+                move_mask = knight_attacks[piece_square];
+                break;
+            case bishop:
+                move_mask = get_bishop_attack(piece_square, full_occupancy ^ (1ULL << piece_square));
+                break;
+            case rook:
+                move_mask = get_rook_attack(piece_square, full_occupancy ^ (1ULL << piece_square));
+                break;
+            case queen:
+                move_mask = get_queen_attack(piece_square, full_occupancy ^ (1ULL << piece_square));
+                break;
+            case king:
+                move_mask = king_attacks[piece_square];
+                break;
+            default:
+                cout << "Error." << endl;
+                break;
+        }
+
+        // if move type is capture, then get mask of attacks landing on enemy pieces
+        if (type == CAPTURE)
+        {
+            u64 attacked_pieces = move_mask & enemy_occupancy;
+            add_normal_moves(moves, piece_square, attacked_pieces, moving_piece, type);
+        }
+        else
+        {
+            u64 quiet_mask = move_mask & ~full_occupancy;
+            add_normal_moves(moves, piece_square, quiet_mask, moving_piece, type);
+        }
+
+        // reset lsb
+        pieces &= (pieces - 1);
+    }
+}
+
+/* METHODS FOR MOVE GENERATION */
+
+// capture moves
+void Board::generate_pawn_attacks(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, pawn, side_occupancy, CAPTURE);
+}
+
+void Board::generate_knight_attacks(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, knight, side_occupancy, CAPTURE);
+}
+
+void Board::generate_bishop_attacks(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, bishop, side_occupancy, CAPTURE);
+}
+
+void Board::generate_rook_attacks(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, rook, side_occupancy, CAPTURE);
+}
+
+void Board::generate_queen_attacks(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, queen, side_occupancy, CAPTURE);
+}
+
+void Board::generate_king_attacks(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, king, side_occupancy, CAPTURE);
+}
+
+// quiet moves
+void Board::generate_pawn_pushes(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, pawn, side_occupancy, QUIET);
+}
+
+void Board::generate_knight_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, knight, side_occupancy, QUIET);
+}
+
+void Board::generate_bishop_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, bishop, side_occupancy, QUIET);
+}
+
+void Board::generate_rook_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, rook, side_occupancy, QUIET);
+}
+
+void Board::generate_queen_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, queen, side_occupancy, QUIET);
+}
+
+void Board::generate_king_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+{
+    generate_normal_moves(moves, king, side_occupancy, QUIET);
+}
+
+// special moves
+
 void Board::print()
 {
     for (int rank = 7; rank >= 0; rank--)
@@ -134,12 +319,26 @@ void Board::print()
     cout << "+---+---+---+---+---+---+---+---+" << endl;
 }
 
-int main()
+void setup()
 {
     generate_static_bitboards();
-    for (int i = 0; i < NUM_SQUARES; i++)
+    generate_magics(bishop);
+    generate_magics(rook);
+}
+
+int main()
+{
+    setup();
+
+    Board board;
+    MoveList moves;
+    u64 side_occupancy[2] = {rank_masks[0] | rank_masks[1], rank_masks[6] | rank_masks[7]};
+    board.generate_king_quiet_moves(moves, side_occupancy);
+    board.generate_king_attacks(moves, side_occupancy);
+    for (int i = 0; i < moves.count; i++)
     {
-        display(pawn_pushes[BLACK][i]);
+        Move m = moves.moves[i];
+        cout << m.from << ", " << m.to << ", " << m.move_type << endl;
     }
 
     return 0;
