@@ -44,8 +44,8 @@ class Board
         void generate_king_quiet_moves(MoveList &moves, u64 side_occupancy[2]);
 
         // special moves (en passant, castling)
-        void generate_en_passant(MoveList &moves);
-        void generate_castles(MoveList &moves);
+        void generate_en_passant(MoveList &moves, u64 side_occupancy[2]);
+        void generate_castles(MoveList &moves, u64 side_occupancy[2]);
 
         void from_fen(string fen);
         void print(); 
