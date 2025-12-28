@@ -409,17 +409,40 @@ void Board::generate_castles(MoveList &moves)
 {
     bool king_castle_right = king_castle_ability[side_to_move];
     bool queen_castle_right = queen_castle_ability[side_to_move];
+    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
 
     // handle king-side castle
     if (king_castle_right)
     {
+        u64 king_side_castle_squares = 6ULL << (56 * side_to_move);
 
+        // only allow castle if pieces don't occupy king's path and king's path is not attacked
+        if ((full_occupancy & king_side_castle_squares) == 0 && (side_attacks[1-side_to_move] & king_side_castle_squares) == 0)
+        {
+            Square from_square = static_cast<Square>(e1 + 56 * side_to_move);
+            Square to_square = static_cast<Square>(g1 + 56 * side_to_move);
+
+            moves.add({from_square, to_square, KING_CASTLE});
+        }
     }
 
     // handle queen-side castle
     if (queen_castle_right)
     {
+        u64 queen_side_castle_squares = 112ULL << (56 * side_to_move);
 
+        if ((full_occupancy & queen_side_castle_squares) == 0)
+        {
+            queen_side_castle_squares ^= (1ULL << (b1 + 56 * side_to_move));
+
+            if ((queen_side_castle_squares & side_attacks[1-side_to_move]) == 0)
+            {
+                Square from_square = static_cast<Square>(e1 + 56 * side_to_move);
+                Square to_square = static_cast<Square>(c1 + 56 * side_to_move);
+
+                moves.add({from_square, to_square, QUEEN_CASTLE});
+            }
+        }
     }
 }
 
@@ -461,8 +484,14 @@ int main()
 {
     setup();
 
-    Board board;
-    cout << board.in_check() << endl;
+    Board board("r3k2r/ppp1qppp/2npbn2/2b1p3/2B1P3/2NPBN2/PPP1QPPP/R3K2R b KQkq - 4 8");
+    MoveList moves;
+    board.generate_castles(moves);
+    for (int i = 0; i < moves.count; i++)
+    {
+        Move m = moves.moves[i];
+        cout << m.from << ", " << m.to << ", " << m.move_type << endl;
+    }
 
     return 0;
 }
