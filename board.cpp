@@ -108,6 +108,22 @@ void Board::from_fen(string fen)
     full_moves = stoi(fen.substr(i, fen.length() - i));
 }
 
+void Board::generate_side_occupancies()
+{
+    // zero out side occupancies
+    side_occupancy[WHITE] = 0ULL;
+    side_occupancy[BLACK] = 0ULL;
+
+    // generate new side occupancies
+    for (int i = 0; i < NUM_COLORS; i++)
+    {
+        for (int j = 0; j < NUM_PIECES; j++)
+        {
+            side_occupancy[i] |= piece_occupancies[i][j];
+        }
+    }
+}
+
 Piece Board::piece_at_square_for_side(Square sq, Color side)
 {
     for (int i = 0; i < none; i++)
@@ -158,7 +174,7 @@ u64 Board::get_move_mask(Piece piece, Square from_square, u64 full_occupancy, Co
     return move_mask;
 }
 
-u64 Board::squares_attacked_by(Color side, u64 side_occupancy[2])
+u64 Board::squares_attacked_by(Color side)
 {
     u64 attacked_squares = 0ULL;
     u64 this_occupancy = side_occupancy[side];
@@ -179,6 +195,14 @@ u64 Board::squares_attacked_by(Color side, u64 side_occupancy[2])
     }
 
     return attacked_squares;
+}
+
+bool Board::in_check(Color side)
+{
+    u64 friendly_king = piece_occupancies[side][king];
+    u64 danger_squares = squares_attacked_by(static_cast<Color>(1-side));
+
+    return (friendly_king & danger_squares) > 0;
 }
 
 void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type)
@@ -228,7 +252,7 @@ void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_p
     }
 }
 
-void Board::generate_normal_moves(MoveList &moves, Piece moving_piece, u64 side_occupancy[2], MoveType type)
+void Board::generate_normal_moves(MoveList &moves, Piece moving_piece, MoveType type)
 {
     // get occupancy for current side-to-move
     u64 pieces = piece_occupancies[side_to_move][moving_piece];
@@ -265,65 +289,65 @@ void Board::generate_normal_moves(MoveList &moves, Piece moving_piece, u64 side_
 /* METHODS FOR MOVE GENERATION */
 
 // capture moves
-void Board::generate_pawn_attacks(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_pawn_attacks(MoveList &moves)
 {
-    generate_normal_moves(moves, pawn, side_occupancy, CAPTURE);
+    generate_normal_moves(moves, pawn, CAPTURE);
 }
 
-void Board::generate_knight_attacks(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_knight_attacks(MoveList &moves)
 {
-    generate_normal_moves(moves, knight, side_occupancy, CAPTURE);
+    generate_normal_moves(moves, knight, CAPTURE);
 }
 
-void Board::generate_bishop_attacks(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_bishop_attacks(MoveList &moves)
 {
-    generate_normal_moves(moves, bishop, side_occupancy, CAPTURE);
+    generate_normal_moves(moves, bishop, CAPTURE);
 }
 
-void Board::generate_rook_attacks(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_rook_attacks(MoveList &moves)
 {
-    generate_normal_moves(moves, rook, side_occupancy, CAPTURE);
+    generate_normal_moves(moves, rook, CAPTURE);
 }
 
-void Board::generate_queen_attacks(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_queen_attacks(MoveList &moves)
 {
-    generate_normal_moves(moves, queen, side_occupancy, CAPTURE);
+    generate_normal_moves(moves, queen, CAPTURE);
 }
 
-void Board::generate_king_attacks(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_king_attacks(MoveList &moves)
 {
-    generate_normal_moves(moves, king, side_occupancy, CAPTURE);
+    generate_normal_moves(moves, king, CAPTURE);
 }
 
 // quiet moves
-void Board::generate_pawn_pushes(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_pawn_pushes(MoveList &moves)
 {
-    generate_normal_moves(moves, pawn, side_occupancy, QUIET);
+    generate_normal_moves(moves, pawn, QUIET);
 }
 
-void Board::generate_knight_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_knight_quiet_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, knight, side_occupancy, QUIET);
+    generate_normal_moves(moves, knight, QUIET);
 }
 
-void Board::generate_bishop_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_bishop_quiet_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, bishop, side_occupancy, QUIET);
+    generate_normal_moves(moves, bishop, QUIET);
 }
 
-void Board::generate_rook_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_rook_quiet_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, rook, side_occupancy, QUIET);
+    generate_normal_moves(moves, rook, QUIET);
 }
 
-void Board::generate_queen_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_queen_quiet_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, queen, side_occupancy, QUIET);
+    generate_normal_moves(moves, queen, QUIET);
 }
 
-void Board::generate_king_quiet_moves(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_king_quiet_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, king, side_occupancy, QUIET);
+    generate_normal_moves(moves, king, QUIET);
 }
 
 // special moves
@@ -367,7 +391,7 @@ void Board::generate_en_passant(MoveList &moves)
     }
 }
 
-void Board::generate_castles(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_castles(MoveList &moves)
 {
     bool king_castle_right = king_castle_ability[side_to_move];
     bool queen_castle_right = queen_castle_ability[side_to_move];
@@ -423,9 +447,9 @@ int main()
 {
     setup();
 
-    Board board;
-    u64 side_occupancy[2] = {rank_masks[rank_1] | rank_masks[rank_2], rank_masks[rank_7] | rank_masks[rank_8]};
-    display(board.squares_attacked_by(WHITE, side_occupancy));
+    Board board("r1b1kbnr/pBp2ppp/4p3/2PpP3/4q3/1Q6/PP1P1PPP/RNB1K1NR w KQkq - 3 9");
+    board.generate_side_occupancies();
+    cout << board.in_check(WHITE) << endl;
 
     return 0;
 }
