@@ -9,6 +9,7 @@ class Board
     private:
         u64 piece_occupancies[NUM_COLORS][NUM_PIECES];
         u64 side_occupancy[NUM_COLORS];
+        u64 side_attacks[NUM_COLORS];
         Color side_to_move;
         bool king_castle_ability[NUM_COLORS];
         bool queen_castle_ability[NUM_COLORS];
@@ -19,12 +20,16 @@ class Board
         Board();
         Board(string fen);
 
-        // general helper methods
+        /* GENERAL HELPER METHODS */
         void generate_side_occupancies();
+        void generate_enemy_attacks();
+        void calibrate_occupancies_and_attacks();
+
         Piece piece_at_square_for_side(Square sq, Color side);
         u64 get_move_mask(Piece piece, Square from_square, u64 full_occupancy, Color side, MoveType type);
         u64 squares_attacked_by(Color side);
-        bool in_check(Color side);
+
+        bool in_check();
 
         /* METHODS FOR MOVE GENERATION */
 

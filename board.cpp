@@ -106,6 +106,9 @@ void Board::from_fen(string fen)
     // initialize full moves
     i++;
     full_moves = stoi(fen.substr(i, fen.length() - i));
+
+    // calibrate
+    calibrate_occupancies_and_attacks();
 }
 
 void Board::generate_side_occupancies()
@@ -122,6 +125,18 @@ void Board::generate_side_occupancies()
             side_occupancy[i] |= piece_occupancies[i][j];
         }
     }
+}
+
+void Board::generate_enemy_attacks()
+{
+    Color enemy_side = static_cast<Color>(1 - side_to_move);
+    side_attacks[enemy_side] = squares_attacked_by(enemy_side);
+}
+
+void Board::calibrate_occupancies_and_attacks()
+{
+    generate_side_occupancies();
+    generate_enemy_attacks();
 }
 
 Piece Board::piece_at_square_for_side(Square sq, Color side)
@@ -197,12 +212,11 @@ u64 Board::squares_attacked_by(Color side)
     return attacked_squares;
 }
 
-bool Board::in_check(Color side)
+bool Board::in_check()
 {
-    u64 friendly_king = piece_occupancies[side][king];
-    u64 danger_squares = squares_attacked_by(static_cast<Color>(1-side));
+    u64 friendly_king = piece_occupancies[side_to_move][king];
 
-    return (friendly_king & danger_squares) > 0;
+    return (friendly_king & side_attacks[1-side_to_move]) > 0;
 }
 
 void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type)
@@ -447,9 +461,8 @@ int main()
 {
     setup();
 
-    Board board("r1b1kbnr/pBp2ppp/4p3/2PpP3/4q3/1Q6/PP1P1PPP/RNB1K1NR w KQkq - 3 9");
-    board.generate_side_occupancies();
-    cout << board.in_check(WHITE) << endl;
+    Board board;
+    cout << board.in_check() << endl;
 
     return 0;
 }
