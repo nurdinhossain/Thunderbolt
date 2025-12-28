@@ -20,6 +20,8 @@ class Board
 
         // general helper methods
         Piece piece_at_square_for_side(Square sq, Color side);
+        u64 get_move_mask(Piece piece, Square from_square, u64 full_occupancy, Color side, MoveType type);
+        u64 squares_attacked_by(Color side, u64 side_occupancy[2]);
 
         /* METHODS FOR MOVE GENERATION */
 
@@ -44,8 +46,10 @@ class Board
         void generate_king_quiet_moves(MoveList &moves, u64 side_occupancy[2]);
 
         // special moves (en passant, castling)
-        void generate_en_passant(MoveList &moves, u64 side_occupancy[2]);
+        void generate_en_passant(MoveList &moves);
         void generate_castles(MoveList &moves, u64 side_occupancy[2]);
+
+        // make/un-make moves
 
         void from_fen(string fen);
         void print(); 

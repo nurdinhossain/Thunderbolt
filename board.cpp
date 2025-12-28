@@ -120,6 +120,67 @@ Piece Board::piece_at_square_for_side(Square sq, Color side)
     return none;
 }
 
+u64 Board::get_move_mask(Piece piece, Square from_square, u64 full_occupancy, Color side, MoveType type)
+{
+    u64 move_mask;
+    switch (piece)
+    {
+        case pawn:
+            if (type == CAPTURE) move_mask = pawn_attacks[side][from_square];
+            else 
+            {
+                move_mask = pawn_pushes[side][from_square];
+
+                int from_rank = from_square / NUM_FILES;
+                if ((side == WHITE && from_rank == rank_2) || (side == BLACK && from_rank == rank_7)) move_mask &= get_rook_attack(from_square, full_occupancy ^ (1ULL << from_square));
+            }
+            break;
+        case knight:
+            move_mask = knight_attacks[from_square];
+            break;
+        case bishop:
+            move_mask = get_bishop_attack(from_square, full_occupancy ^ (1ULL << from_square));
+            break;
+        case rook:
+            move_mask = get_rook_attack(from_square, full_occupancy ^ (1ULL << from_square));
+            break;
+        case queen:
+            move_mask = get_queen_attack(from_square, full_occupancy ^ (1ULL << from_square));
+            break;
+        case king:
+            move_mask = king_attacks[from_square];
+            break;
+        default:
+            cout << "Error." << endl;
+            break;
+    }
+
+    return move_mask;
+}
+
+u64 Board::squares_attacked_by(Color side, u64 side_occupancy[2])
+{
+    u64 attacked_squares = 0ULL;
+    u64 this_occupancy = side_occupancy[side];
+
+    while (this_occupancy > 0)
+    {
+        // get next piece square
+        Square attacking_piece_sq = static_cast<Square>(lsb(this_occupancy));
+
+        // get attacking piece
+        Piece attacking_piece = piece_at_square_for_side(attacking_piece_sq, side);
+
+        // apply this piece's possible attacks to our total attacked_squares mask
+        attacked_squares |= get_move_mask(attacking_piece, attacking_piece_sq, side_occupancy[WHITE] | side_occupancy[BLACK], side, CAPTURE);
+
+        // reset lsb
+        this_occupancy &= (this_occupancy - 1);
+    }
+
+    return attacked_squares;
+}
+
 void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type)
 {
     int from_rank = from_square / NUM_FILES;
@@ -182,38 +243,7 @@ void Board::generate_normal_moves(MoveList &moves, Piece moving_piece, u64 side_
         Square piece_square = static_cast<Square>(lsb(pieces));
         
         // get move mask for this piece
-        u64 move_mask;
-        switch (moving_piece)
-        {
-            case pawn:
-                if (type == CAPTURE) move_mask = pawn_attacks[side_to_move][piece_square];
-                else 
-                {
-                    move_mask = pawn_pushes[side_to_move][piece_square];
-
-                    int from_rank = piece_square / NUM_FILES;
-                    if ((side_to_move == WHITE && from_rank == rank_2) || (side_to_move == BLACK && from_rank == rank_7)) move_mask &= get_rook_attack(piece_square, full_occupancy ^ (1ULL << piece_square));
-                }
-                break;
-            case knight:
-                move_mask = knight_attacks[piece_square];
-                break;
-            case bishop:
-                move_mask = get_bishop_attack(piece_square, full_occupancy ^ (1ULL << piece_square));
-                break;
-            case rook:
-                move_mask = get_rook_attack(piece_square, full_occupancy ^ (1ULL << piece_square));
-                break;
-            case queen:
-                move_mask = get_queen_attack(piece_square, full_occupancy ^ (1ULL << piece_square));
-                break;
-            case king:
-                move_mask = king_attacks[piece_square];
-                break;
-            default:
-                cout << "Error." << endl;
-                break;
-        }
+        u64 move_mask = get_move_mask(moving_piece, piece_square, full_occupancy, side_to_move, type);
 
         // if move type is capture, then get mask of attacks landing on enemy pieces
         if (type == CAPTURE)
@@ -297,7 +327,7 @@ void Board::generate_king_quiet_moves(MoveList &moves, u64 side_occupancy[2])
 }
 
 // special moves
-void Board::generate_en_passant(MoveList &moves, u64 side_occupancy[2])
+void Board::generate_en_passant(MoveList &moves)
 {
     // check if there's a valid en passant square
     if (en_passant_square == null) return;
@@ -307,15 +337,51 @@ void Board::generate_en_passant(MoveList &moves, u64 side_occupancy[2])
     int ep_file = en_passant_square / NUM_FILES;
 
     // check if there are enemy pawns in the same rank and neighboring files as the pawn that just double pushed
+    u64 attacker_pawns;
     if (ep_rank == rank_3)
     {
         // side-to-move is black
         int victim_index = en_passant_square + 8;
+        u64 pawns = piece_occupancies[BLACK][pawn];
+        attacker_pawns = rank_masks[rank_3] & file_neighbor_masks[ep_file] & pawns;
     }
     else
     {
         // side-to-move is white
         int victim_index = en_passant_square - 8;
+        u64 pawns = piece_occupancies[WHITE][pawn];
+        attacker_pawns = rank_masks[rank_6] & file_neighbor_masks[ep_file] & pawns;
+    }
+
+    // add all possible en passant moves
+    while (attacker_pawns > 0)
+    {
+        // get index
+        Square attacker_square = static_cast<Square>(lsb(attacker_pawns));
+
+        // add move
+        moves.add({attacker_square, en_passant_square, EN_PASSANT_CAPTURE});
+
+        // reset lsb
+        attacker_pawns &= (attacker_pawns - 1);
+    }
+}
+
+void Board::generate_castles(MoveList &moves, u64 side_occupancy[2])
+{
+    bool king_castle_right = king_castle_ability[side_to_move];
+    bool queen_castle_right = queen_castle_ability[side_to_move];
+
+    // handle king-side castle
+    if (king_castle_right)
+    {
+
+    }
+
+    // handle queen-side castle
+    if (queen_castle_right)
+    {
+
     }
 }
 
@@ -357,25 +423,9 @@ int main()
 {
     setup();
 
-    Board board("rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3");
-    MoveList moves;
-    u64 side_occupancy[2] = {rank_masks[0] | rank_masks[1], rank_masks[6] | rank_masks[7]};
-    side_occupancy[0] = toggle_bit(side_occupancy[0], 11);
-    side_occupancy[0] = toggle_bit(side_occupancy[0], 1);
-    side_occupancy[0] = toggle_bit(side_occupancy[0], 18);
-    side_occupancy[0] = toggle_bit(side_occupancy[0], 27);
-    side_occupancy[1] = toggle_bit(side_occupancy[1], 51);
-    side_occupancy[1] = toggle_bit(side_occupancy[1], 35);
-    side_occupancy[1] = toggle_bit(side_occupancy[1], 57);
-    side_occupancy[1] = toggle_bit(side_occupancy[1], 42);
-
-    board.generate_pawn_pushes(moves, side_occupancy);
-    board.generate_pawn_attacks(moves, side_occupancy);
-    for (int i = 0; i < moves.count; i++)
-    {
-        Move m = moves.moves[i];
-        cout << m.from << ", " << m.to << ", " << m.move_type << endl;
-    }
+    Board board;
+    u64 side_occupancy[2] = {rank_masks[rank_1] | rank_masks[rank_2], rank_masks[rank_7] | rank_masks[rank_8]};
+    display(board.squares_attacked_by(WHITE, side_occupancy));
 
     return 0;
 }
