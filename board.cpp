@@ -1,6 +1,7 @@
 #include "board.h"
 #include "sliding.h"
 #include <iostream>
+#include <chrono>
 
 Board::Board()
 {
@@ -228,8 +229,17 @@ u64 Board::squares_attacked_by(Color side)
 bool Board::in_check(Color side)
 {
     u64 friendly_king = piece_occupancies[side][king];
-    u64 enemy_attacks = squares_attacked_by(static_cast<Color>(1-side));
-    return (friendly_king & enemy_attacks) > 0;
+    Square friendly_king_square = static_cast<Square>(lsb(friendly_king));
+    u64 full_occupancy = (side_occupancy[WHITE] | side_occupancy[BLACK]) ^ (1ULL << friendly_king_square);
+    u64 attacks_on_king = 0ULL;
+    
+    attacks_on_king |= (pawn_attacks[side][friendly_king_square] & piece_occupancies[1-side][pawn]);
+    attacks_on_king |= (knight_attacks[friendly_king_square] & piece_occupancies[1-side][knight]);
+    attacks_on_king |= (get_bishop_attack(friendly_king_square, full_occupancy) & (piece_occupancies[1-side][bishop] | piece_occupancies[1-side][queen]));
+    attacks_on_king |= (get_rook_attack(friendly_king_square, full_occupancy) & (piece_occupancies[1-side][rook] | piece_occupancies[1-side][queen]));
+    attacks_on_king |= (king_attacks[friendly_king_square] & piece_occupancies[1-side][king]);
+
+    return attacks_on_king > 0;
 }
 
 void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type)
@@ -725,7 +735,10 @@ void Board::run_suite(vector<string>& fens, vector<int>& depths)
         
         for (int j = 0; j <= max_depth; j++)
         {
-            cout << "Depth " << j << ": " << perft(j) << endl;
+            std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+            cout << "Depth " << j << ": " << perft(j);
+            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+            cout << " - " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << endl;
         }
         cout << endl;
     }
