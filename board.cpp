@@ -86,7 +86,7 @@ void Board::from_fen(string fen)
     {
         char file_c = fen[i];
         char rank_c = fen[i+1];
-        Square sq = static_cast<Square>((rank_c - '1') * NUM_FILES + (file_c - 'a'));
+        Square sq = static_cast<Square>((rank_c - '1') * NUM_FILES + ('h' - file_c));
         en_passant_square = sq;
 
         i += 3;
@@ -108,10 +108,10 @@ void Board::from_fen(string fen)
     full_moves = stoi(fen.substr(i, fen.length() - i));
 
     // calibrate
-    calibrate_occupancies_and_attacks();
+    calibrate_occupancies();
 }
 
-void Board::generate_side_occupancies()
+void Board::calibrate_occupancies()
 {
     // zero out side occupancies
     side_occupancy[WHITE] = 0ULL;
@@ -125,18 +125,6 @@ void Board::generate_side_occupancies()
             side_occupancy[i] |= piece_occupancies[i][j];
         }
     }
-}
-
-void Board::generate_enemy_attacks()
-{
-    Color enemy_side = static_cast<Color>(1 - side_to_move);
-    side_attacks[enemy_side] = squares_attacked_by(enemy_side);
-}
-
-void Board::calibrate_occupancies_and_attacks()
-{
-    generate_side_occupancies();
-    generate_enemy_attacks();
 }
 
 Piece Board::piece_at_square_for_side(Square sq, Color side)
@@ -212,11 +200,11 @@ u64 Board::squares_attacked_by(Color side)
     return attacked_squares;
 }
 
-bool Board::in_check()
+bool Board::in_check(Color side)
 {
-    u64 friendly_king = piece_occupancies[side_to_move][king];
-
-    return (friendly_king & side_attacks[1-side_to_move]) > 0;
+    u64 friendly_king = piece_occupancies[side][king];
+    u64 enemy_attacks = squares_attacked_by(static_cast<Color>(1-side));
+    return (friendly_king & enemy_attacks) > 0;
 }
 
 void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type)
@@ -333,6 +321,16 @@ void Board::generate_king_attacks(MoveList &moves)
     generate_normal_moves(moves, king, CAPTURE);
 }
 
+void Board::generate_attacks(MoveList &moves)
+{
+    generate_pawn_attacks(moves);
+    generate_knight_attacks(moves);
+    generate_bishop_attacks(moves);
+    generate_rook_attacks(moves);
+    generate_queen_attacks(moves);
+    generate_king_attacks(moves);
+}
+
 // quiet moves
 void Board::generate_pawn_pushes(MoveList &moves)
 {
@@ -364,6 +362,16 @@ void Board::generate_king_quiet_moves(MoveList &moves)
     generate_normal_moves(moves, king, QUIET);
 }
 
+void Board::generate_quiet_moves(MoveList &moves)
+{
+    generate_pawn_pushes(moves);
+    generate_knight_quiet_moves(moves);
+    generate_bishop_quiet_moves(moves);
+    generate_rook_quiet_moves(moves);
+    generate_queen_quiet_moves(moves);
+    generate_king_quiet_moves(moves);
+}
+
 // special moves
 void Board::generate_en_passant(MoveList &moves)
 {
@@ -372,7 +380,7 @@ void Board::generate_en_passant(MoveList &moves)
 
     // get rank and file of en passant square
     int ep_rank = en_passant_square / NUM_FILES;
-    int ep_file = en_passant_square / NUM_FILES;
+    int ep_file = en_passant_square % NUM_FILES;
 
     // check if there are enemy pawns in the same rank and neighboring files as the pawn that just double pushed
     u64 attacker_pawns;
@@ -381,14 +389,14 @@ void Board::generate_en_passant(MoveList &moves)
         // side-to-move is black
         int victim_index = en_passant_square + 8;
         u64 pawns = piece_occupancies[BLACK][pawn];
-        attacker_pawns = rank_masks[rank_3] & file_neighbor_masks[ep_file] & pawns;
+        attacker_pawns = rank_masks[rank_4] & file_neighbor_masks[ep_file] & pawns;
     }
     else
     {
         // side-to-move is white
         int victim_index = en_passant_square - 8;
         u64 pawns = piece_occupancies[WHITE][pawn];
-        attacker_pawns = rank_masks[rank_6] & file_neighbor_masks[ep_file] & pawns;
+        attacker_pawns = rank_masks[rank_5] & file_neighbor_masks[ep_file] & pawns;
     }
 
     // add all possible en passant moves
@@ -410,17 +418,22 @@ void Board::generate_castles(MoveList &moves)
     bool king_castle_right = king_castle_ability[side_to_move];
     bool queen_castle_right = queen_castle_ability[side_to_move];
     u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
+    u64 enemy_attacks = squares_attacked_by(static_cast<Color>(1-side_to_move));
+    int side_offset = 56 * side_to_move;
+
+    // if king is in check, don't generate castles
+    if ((enemy_attacks & piece_occupancies[side_to_move][king]) > 0) return;
 
     // handle king-side castle
     if (king_castle_right)
     {
-        u64 king_side_castle_squares = 6ULL << (56 * side_to_move);
+        u64 king_side_castle_squares = 6ULL << side_offset;
 
         // only allow castle if pieces don't occupy king's path and king's path is not attacked
-        if ((full_occupancy & king_side_castle_squares) == 0 && (side_attacks[1-side_to_move] & king_side_castle_squares) == 0)
+        if ((full_occupancy & king_side_castle_squares) == 0 && (enemy_attacks & king_side_castle_squares) == 0)
         {
-            Square from_square = static_cast<Square>(e1 + 56 * side_to_move);
-            Square to_square = static_cast<Square>(g1 + 56 * side_to_move);
+            Square from_square = static_cast<Square>(e1 + side_offset);
+            Square to_square = static_cast<Square>(g1 + side_offset);
 
             moves.add({from_square, to_square, KING_CASTLE});
         }
@@ -429,20 +442,247 @@ void Board::generate_castles(MoveList &moves)
     // handle queen-side castle
     if (queen_castle_right)
     {
-        u64 queen_side_castle_squares = 112ULL << (56 * side_to_move);
+        u64 queen_side_castle_squares = 112ULL << side_offset;
 
         if ((full_occupancy & queen_side_castle_squares) == 0)
         {
-            queen_side_castle_squares ^= (1ULL << (b1 + 56 * side_to_move));
+            queen_side_castle_squares ^= (1ULL << (b1 + side_offset));
 
-            if ((queen_side_castle_squares & side_attacks[1-side_to_move]) == 0)
+            if ((queen_side_castle_squares & enemy_attacks) == 0)
             {
-                Square from_square = static_cast<Square>(e1 + 56 * side_to_move);
-                Square to_square = static_cast<Square>(c1 + 56 * side_to_move);
+                Square from_square = static_cast<Square>(e1 + side_offset);
+                Square to_square = static_cast<Square>(c1 + side_offset);
 
                 moves.add({from_square, to_square, QUEEN_CASTLE});
             }
         }
+    }
+}
+
+void Board::generate_pseudo_legal_moves(MoveList &moves)
+{
+    generate_attacks(moves);
+    generate_quiet_moves(moves);
+    generate_en_passant(moves);
+    generate_castles(moves);
+}
+
+/* MAKING/UN-MAKING MOVES */
+PreviousState Board::make_move(Move move)
+{
+    // save prev state
+    PreviousState prev_state;
+    prev_state.en_passant_square = en_passant_square;
+    prev_state.half_moves = half_moves;
+    prev_state.king_castle_ability[WHITE] = king_castle_ability[WHITE];
+    prev_state.king_castle_ability[BLACK] = king_castle_ability[BLACK];
+    prev_state.queen_castle_ability[WHITE] = queen_castle_ability[WHITE];
+    prev_state.queen_castle_ability[BLACK] = queen_castle_ability[BLACK];
+
+    // extract info from move
+    Square from_square = move.from;
+    Square to_square = move.to;
+    MoveType move_type = move.move_type;
+    Color enemy_color = static_cast<Color>(1-side_to_move);
+
+    // offsets
+    int side_offset = 56 * side_to_move;
+    int en_passant_offset = 8 * (2 * side_to_move - 1);
+
+    // extract attacking and captured piece, if any; apply capture
+    Piece from_piece = piece_at_square_for_side(from_square, side_to_move);
+    Piece to_piece = none;
+    if (move_type == CAPTURE || move_type >= KNIGHT_PROMOTION_CAPTURE)
+    {
+        to_piece = piece_at_square_for_side(to_square, enemy_color);
+        piece_occupancies[enemy_color][to_piece] ^= (1ULL << to_square);
+        if (move_type == CAPTURE) piece_occupancies[side_to_move][from_piece] ^= (1ULL << to_square);
+    }
+    prev_state.piece_captured = to_piece;
+
+    // reset en passant square
+    en_passant_square = null;
+
+    // remove moving piece from its starting square
+    piece_occupancies[side_to_move][from_piece] ^= (1ULL << from_square);
+
+    // apply move normally if its not a promotion
+    if (move_type < KNIGHT_PROMOTION && move_type != CAPTURE)
+    {
+        // add moving piece to its destination square
+        piece_occupancies[side_to_move][from_piece] ^= (1ULL << to_square);
+
+        // deal with all the other fun stuff 
+        if (move_type == DOUBLE_PAWN_PUSH) en_passant_square = static_cast<Square>(to_square + en_passant_offset);
+
+        else if (move_type == KING_CASTLE)
+        {
+            // move king side rook
+            piece_occupancies[side_to_move][rook] ^= (1ULL << (h1 + side_offset));
+            piece_occupancies[side_to_move][rook] ^= (1ULL << (f1 + side_offset));
+        }
+
+        else if (move_type == QUEEN_CASTLE)
+        {
+            // move queen side rook
+            piece_occupancies[side_to_move][rook] ^= (1ULL << (a1 + side_offset));
+            piece_occupancies[side_to_move][rook] ^= (1ULL << (d1 + side_offset));
+        }
+
+        else if (move_type == EN_PASSANT_CAPTURE) piece_occupancies[enemy_color][pawn] ^= (1ULL << (to_square + en_passant_offset));
+    }
+    else if (move_type >= KNIGHT_PROMOTION)
+    {
+        // add promo piece
+        if (move_type >= KNIGHT_PROMOTION_CAPTURE) piece_occupancies[side_to_move][move_type-KNIGHT_PROMOTION_CAPTURE + 1] ^= (1ULL << to_square); 
+        else piece_occupancies[side_to_move][move_type-KNIGHT_PROMOTION + 1] ^= (1ULL << to_square); 
+    }
+
+    // update castling rights
+    if (from_piece == king || move_type == KING_CASTLE || move_type == QUEEN_CASTLE)
+    {
+        king_castle_ability[side_to_move] = false;
+        queen_castle_ability[side_to_move] = false;
+    }
+    else if (from_piece == rook && from_square == (h1 + side_offset)) king_castle_ability[side_to_move] = false;
+    else if (from_piece == rook && from_square == (a1 + side_offset)) queen_castle_ability[side_to_move] = false;
+
+    if (to_piece == rook && to_square == (h1 + 56 * enemy_color)) king_castle_ability[enemy_color] = false;
+    else if (to_piece == rook && to_square == (a1 + 56 * enemy_color)) queen_castle_ability[enemy_color] = false;
+
+    // update 50 move rule 
+    half_moves++; 
+    if (from_piece == pawn || move_type >= CAPTURE) half_moves = 0;
+
+    // update full moves
+    if (side_to_move == BLACK) full_moves++;
+
+    // update side-to-move
+    side_to_move = enemy_color;
+
+    // re-calibrate
+    calibrate_occupancies();
+
+    return prev_state;
+}
+
+void Board::unmake_move(Move move, PreviousState prev_state)
+{
+    // load prev state
+    en_passant_square = prev_state.en_passant_square;
+    half_moves = prev_state.half_moves;
+    king_castle_ability[WHITE] = prev_state.king_castle_ability[WHITE];
+    king_castle_ability[BLACK] = prev_state.king_castle_ability[BLACK];
+    queen_castle_ability[WHITE] = prev_state.queen_castle_ability[WHITE];
+    queen_castle_ability[BLACK] = prev_state.queen_castle_ability[BLACK];
+
+    // extract info from move
+    Square from_square = move.from;
+    Square to_square = move.to;
+    MoveType move_type = move.move_type;
+    Color move_color = static_cast<Color>(1-side_to_move);
+
+    // offsets
+    int side_offset = 56 * move_color;
+    int en_passant_offset = 8 * (2 * move_color - 1);
+
+    // extract attacking and captured piece, if any; apply capture
+    Piece moving_piece;
+    if (move_type >= KNIGHT_PROMOTION) moving_piece = pawn; 
+    else moving_piece = piece_at_square_for_side(to_square, move_color);
+
+
+    Piece taken_piece = prev_state.piece_captured;
+    if (move_type == CAPTURE || move_type >= KNIGHT_PROMOTION_CAPTURE)
+    {
+        piece_occupancies[side_to_move][taken_piece] ^= (1ULL << to_square); // restore captured piece
+        if (move_type == CAPTURE) piece_occupancies[move_color][moving_piece] ^= (1ULL << to_square);
+    }
+
+    // reset moving piece back to its starting square
+    piece_occupancies[move_color][moving_piece] ^= (1ULL << from_square);
+
+    // apply move normally if its not a promotion
+    if (move_type < KNIGHT_PROMOTION && move_type != CAPTURE)
+    {
+        // remove moving piece from its original destination square
+        piece_occupancies[move_color][moving_piece] ^= (1ULL << to_square);
+
+        // deal with all the other fun stuff
+        if (move_type == KING_CASTLE)
+        {
+            // move king side rook
+            piece_occupancies[move_color][rook] ^= (1ULL << (h1 + side_offset));
+            piece_occupancies[move_color][rook] ^= (1ULL << (f1 + side_offset));
+        }
+
+        else if (move_type == QUEEN_CASTLE)
+        {
+            // move queen side rook
+            piece_occupancies[move_color][rook] ^= (1ULL << (a1 + side_offset));
+            piece_occupancies[move_color][rook] ^= (1ULL << (d1 + side_offset));
+        }
+
+        else if (move_type == EN_PASSANT_CAPTURE) piece_occupancies[side_to_move][pawn] ^= (1ULL << (to_square + en_passant_offset));
+    }
+    else if (move_type >= KNIGHT_PROMOTION)
+    {
+        // remove promo piece
+        if (move_type >= KNIGHT_PROMOTION_CAPTURE) piece_occupancies[move_color][move_type-KNIGHT_PROMOTION_CAPTURE + 1] ^= (1ULL << to_square); 
+        else piece_occupancies[move_color][move_type-KNIGHT_PROMOTION + 1] ^= (1ULL << to_square); 
+    }
+ 
+    // update side-to-move
+    side_to_move = move_color;
+
+    // update full moves
+    if (side_to_move == BLACK) full_moves--;
+
+    // re-calibrate
+    calibrate_occupancies();
+}
+
+
+/* TESTING */
+int Board::perft(int depth)
+{
+    if (depth == 0) return 1;
+
+    MoveList moves;
+    generate_pseudo_legal_moves(moves);
+    int nodes = 0;
+
+    for (int i = 0; i < moves.count; i++)
+    {
+        Move m = moves.moves[i];
+        PreviousState prev_state;
+        Color prev_color = side_to_move;
+        prev_state = make_move(m);
+        if (!in_check(prev_color)) 
+        {
+            nodes += perft(depth-1);
+        }
+        unmake_move(m, prev_state);
+    }
+
+    return nodes;
+}
+
+void Board::run_suite(vector<string>& fens, vector<int>& depths)
+{
+    for (int i = 0; i < fens.size(); i++)
+    {
+        string fen = fens[i];
+        int max_depth = depths[i];
+        from_fen(fen);
+
+        cout << "FEN: " << fen << endl;
+        
+        for (int j = 0; j <= max_depth; j++)
+        {
+            cout << "Depth " << j << ": " << perft(j) << endl;
+        }
+        cout << endl;
     }
 }
 
@@ -484,14 +724,17 @@ int main()
 {
     setup();
 
-    Board board("r3k2r/ppp1qppp/2npbn2/2b1p3/2B1P3/2NPBN2/PPP1QPPP/R3K2R b KQkq - 4 8");
-    MoveList moves;
-    board.generate_castles(moves);
-    for (int i = 0; i < moves.count; i++)
-    {
-        Move m = moves.moves[i];
-        cout << m.from << ", " << m.to << ", " << m.move_type << endl;
-    }
+    Board board;
+    vector<string> fens = {
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
+    };
+    vector<int> depths = {6, 5, 7, 5, 5, 5};
+    board.run_suite(fens, depths);
 
     return 0;
 }

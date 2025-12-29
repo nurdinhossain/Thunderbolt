@@ -196,3 +196,15 @@ void generate_static_bitboards()
     generate_bishop_masks();
     generate_sliding_masks();
 }
+
+string stringify_square(Square sq)
+{
+    int rank = sq / NUM_FILES;
+    int file = sq % NUM_FILES;
+
+    string string_sq = "";
+    string_sq += 'h' - file;
+    string_sq += '1' + rank;
+
+    return string_sq;
+}

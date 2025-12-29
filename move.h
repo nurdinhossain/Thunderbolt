@@ -39,3 +39,12 @@ typedef struct MoveList {
     }
 } MoveList;
 
+typedef struct PreviousState {
+    bool king_castle_ability[NUM_COLORS];
+    bool queen_castle_ability[NUM_COLORS];
+    Square en_passant_square;
+    int half_moves;
+
+    Piece piece_captured;
+} PreviousState;
+

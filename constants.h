@@ -1,5 +1,7 @@
 #pragma once
 #include "bitboard.h"
+#include <string>
+using namespace std;
 
 // constants
 #define NUM_SQUARES 64
@@ -97,3 +99,6 @@ void generate_sliding_masks();
 
 // generate all static bitboards
 void generate_static_bitboards();
+
+// return string version of square
+string stringify_square(Square sq);

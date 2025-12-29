@@ -2,6 +2,7 @@
 #include "constants.h"
 #include "move.h"
 #include <string>
+#include <vector>
 using namespace std;
 
 class Board
@@ -9,7 +10,6 @@ class Board
     private:
         u64 piece_occupancies[NUM_COLORS][NUM_PIECES];
         u64 side_occupancy[NUM_COLORS];
-        u64 side_attacks[NUM_COLORS];
         Color side_to_move;
         bool king_castle_ability[NUM_COLORS];
         bool queen_castle_ability[NUM_COLORS];
@@ -21,15 +21,13 @@ class Board
         Board(string fen);
 
         /* GENERAL HELPER METHODS */
-        void generate_side_occupancies();
-        void generate_enemy_attacks();
-        void calibrate_occupancies_and_attacks();
+        void calibrate_occupancies();
 
         Piece piece_at_square_for_side(Square sq, Color side);
         u64 get_move_mask(Piece piece, Square from_square, u64 full_occupancy, Color side, MoveType type);
         u64 squares_attacked_by(Color side);
 
-        bool in_check();
+        bool in_check(Color side);
 
         /* METHODS FOR MOVE GENERATION */
 
@@ -44,6 +42,7 @@ class Board
         void generate_rook_attacks(MoveList &moves);
         void generate_queen_attacks(MoveList &moves);
         void generate_king_attacks(MoveList &moves);
+        void generate_attacks(MoveList &moves);
 
         // quiet moves
         void generate_pawn_pushes(MoveList &moves);
@@ -52,12 +51,22 @@ class Board
         void generate_rook_quiet_moves(MoveList &moves);
         void generate_queen_quiet_moves(MoveList &moves);
         void generate_king_quiet_moves(MoveList &moves);
+        void generate_quiet_moves(MoveList &moves);
+
+        // generate all moves
+        void generate_pseudo_legal_moves(MoveList &moves);
 
         // special moves (en passant, castling)
         void generate_en_passant(MoveList &moves);
         void generate_castles(MoveList &moves);
 
         // make/un-make moves
+        PreviousState make_move(Move move);
+        void unmake_move(Move move, PreviousState prev_state);
+
+        // methods for testing
+        int perft(int depth);
+        void run_suite(vector<string>& fens, vector<int>& depths);
 
         void from_fen(string fen);
         void print(); 
