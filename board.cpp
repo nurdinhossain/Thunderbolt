@@ -495,8 +495,15 @@ PreviousState Board::make_move(Move move)
     if (move_type == CAPTURE || move_type >= KNIGHT_PROMOTION_CAPTURE)
     {
         to_piece = piece_at_square_for_side(to_square, enemy_color);
+
         piece_occupancies[enemy_color][to_piece] ^= (1ULL << to_square);
-        if (move_type == CAPTURE) piece_occupancies[side_to_move][from_piece] ^= (1ULL << to_square);
+        side_occupancy[enemy_color] ^= (1ULL << to_square);
+
+        if (move_type == CAPTURE) 
+        {
+            piece_occupancies[side_to_move][from_piece] ^= (1ULL << to_square);
+            side_occupancy[side_to_move] ^= (1ULL << to_square);
+        }
     }
     prev_state.piece_captured = to_piece;
 
@@ -505,12 +512,14 @@ PreviousState Board::make_move(Move move)
 
     // remove moving piece from its starting square
     piece_occupancies[side_to_move][from_piece] ^= (1ULL << from_square);
+    side_occupancy[side_to_move] ^= (1ULL << from_square);
 
     // apply move normally if its not a promotion
     if (move_type < KNIGHT_PROMOTION && move_type != CAPTURE)
     {
         // add moving piece to its destination square
         piece_occupancies[side_to_move][from_piece] ^= (1ULL << to_square);
+        side_occupancy[side_to_move] ^= (1ULL << to_square);
 
         // deal with all the other fun stuff 
         if (move_type == DOUBLE_PAWN_PUSH) en_passant_square = static_cast<Square>(to_square + en_passant_offset);
@@ -520,6 +529,8 @@ PreviousState Board::make_move(Move move)
             // move king side rook
             piece_occupancies[side_to_move][rook] ^= (1ULL << (h1 + side_offset));
             piece_occupancies[side_to_move][rook] ^= (1ULL << (f1 + side_offset));
+            side_occupancy[side_to_move] ^= (1ULL << (h1 + side_offset));
+            side_occupancy[side_to_move] ^= (1ULL << (f1 + side_offset));
         }
 
         else if (move_type == QUEEN_CASTLE)
@@ -527,15 +538,23 @@ PreviousState Board::make_move(Move move)
             // move queen side rook
             piece_occupancies[side_to_move][rook] ^= (1ULL << (a1 + side_offset));
             piece_occupancies[side_to_move][rook] ^= (1ULL << (d1 + side_offset));
+            side_occupancy[side_to_move] ^= (1ULL << (a1 + side_offset));
+            side_occupancy[side_to_move] ^= (1ULL << (d1 + side_offset));
         }
 
-        else if (move_type == EN_PASSANT_CAPTURE) piece_occupancies[enemy_color][pawn] ^= (1ULL << (to_square + en_passant_offset));
+        else if (move_type == EN_PASSANT_CAPTURE) 
+        {
+            piece_occupancies[enemy_color][pawn] ^= (1ULL << (to_square + en_passant_offset));
+            side_occupancy[enemy_color] ^= (1ULL << (to_square + en_passant_offset));
+        }
     }
     else if (move_type >= KNIGHT_PROMOTION)
     {
         // add promo piece
-        if (move_type >= KNIGHT_PROMOTION_CAPTURE) piece_occupancies[side_to_move][move_type-KNIGHT_PROMOTION_CAPTURE + 1] ^= (1ULL << to_square); 
+        if (move_type >= KNIGHT_PROMOTION_CAPTURE) piece_occupancies[side_to_move][move_type-KNIGHT_PROMOTION_CAPTURE + 1] ^= (1ULL << to_square);
         else piece_occupancies[side_to_move][move_type-KNIGHT_PROMOTION + 1] ^= (1ULL << to_square); 
+
+        side_occupancy[side_to_move] ^= (1ULL << to_square);
     }
 
     // update castling rights
@@ -559,9 +578,6 @@ PreviousState Board::make_move(Move move)
 
     // update side-to-move
     side_to_move = enemy_color;
-
-    // re-calibrate
-    calibrate_occupancies();
 
     return prev_state;
 }
@@ -596,17 +612,24 @@ void Board::unmake_move(Move move, PreviousState prev_state)
     if (move_type == CAPTURE || move_type >= KNIGHT_PROMOTION_CAPTURE)
     {
         piece_occupancies[side_to_move][taken_piece] ^= (1ULL << to_square); // restore captured piece
-        if (move_type == CAPTURE) piece_occupancies[move_color][moving_piece] ^= (1ULL << to_square);
+        side_occupancy[side_to_move] ^= (1ULL << to_square); 
+        if (move_type == CAPTURE) 
+        {
+            piece_occupancies[move_color][moving_piece] ^= (1ULL << to_square);
+            side_occupancy[move_color] ^= (1ULL << to_square);
+        }
     }
 
     // reset moving piece back to its starting square
     piece_occupancies[move_color][moving_piece] ^= (1ULL << from_square);
+    side_occupancy[move_color] ^= (1ULL << from_square);
 
     // apply move normally if its not a promotion
     if (move_type < KNIGHT_PROMOTION && move_type != CAPTURE)
     {
         // remove moving piece from its original destination square
         piece_occupancies[move_color][moving_piece] ^= (1ULL << to_square);
+        side_occupancy[move_color] ^= (1ULL << to_square);
 
         // deal with all the other fun stuff
         if (move_type == KING_CASTLE)
@@ -614,6 +637,8 @@ void Board::unmake_move(Move move, PreviousState prev_state)
             // move king side rook
             piece_occupancies[move_color][rook] ^= (1ULL << (h1 + side_offset));
             piece_occupancies[move_color][rook] ^= (1ULL << (f1 + side_offset));
+            side_occupancy[move_color] ^= (1ULL << (h1 + side_offset));
+            side_occupancy[move_color] ^= (1ULL << (f1 + side_offset));
         }
 
         else if (move_type == QUEEN_CASTLE)
@@ -621,15 +646,22 @@ void Board::unmake_move(Move move, PreviousState prev_state)
             // move queen side rook
             piece_occupancies[move_color][rook] ^= (1ULL << (a1 + side_offset));
             piece_occupancies[move_color][rook] ^= (1ULL << (d1 + side_offset));
+            side_occupancy[move_color] ^= (1ULL << (a1 + side_offset));
+            side_occupancy[move_color] ^= (1ULL << (d1 + side_offset));
         }
 
-        else if (move_type == EN_PASSANT_CAPTURE) piece_occupancies[side_to_move][pawn] ^= (1ULL << (to_square + en_passant_offset));
+        else if (move_type == EN_PASSANT_CAPTURE) 
+        {
+            piece_occupancies[side_to_move][pawn] ^= (1ULL << (to_square + en_passant_offset));
+            side_occupancy[side_to_move] ^= (1ULL << (to_square + en_passant_offset));
+        }
     }
     else if (move_type >= KNIGHT_PROMOTION)
     {
         // remove promo piece
         if (move_type >= KNIGHT_PROMOTION_CAPTURE) piece_occupancies[move_color][move_type-KNIGHT_PROMOTION_CAPTURE + 1] ^= (1ULL << to_square); 
         else piece_occupancies[move_color][move_type-KNIGHT_PROMOTION + 1] ^= (1ULL << to_square); 
+        side_occupancy[move_color] ^= (1ULL << to_square); 
     }
  
     // update side-to-move
@@ -637,9 +669,6 @@ void Board::unmake_move(Move move, PreviousState prev_state)
 
     // update full moves
     if (side_to_move == BLACK) full_moves--;
-
-    // re-calibrate
-    calibrate_occupancies();
 }
 
 
