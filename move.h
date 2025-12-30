@@ -45,6 +45,7 @@ typedef struct PreviousState {
     Square en_passant_square;
     int half_moves;
 
+    Piece moving_piece;
     Piece piece_captured;
 } PreviousState;
 

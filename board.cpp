@@ -118,33 +118,12 @@ void Board::calibrate_occupancies()
     side_occupancy[WHITE] = 0ULL;
     side_occupancy[BLACK] = 0ULL;
 
-    // zero out piece squares
-    for (int i = 0; i < NUM_COLORS; i++)
-    {
-        for (int j = 0; j < NUM_SQUARES; j++)
-        {
-            piece_squares[i][j] = none;
-        }
-    }
-
     // generate new side occupancies
     for (int i = 0; i < NUM_COLORS; i++)
     {
         for (int j = 0; j < NUM_PIECES; j++)
         {
             side_occupancy[i] |= piece_occupancies[i][j];
-
-            u64 occupancy = piece_occupancies[i][j];
-            while (occupancy > 0)
-            {
-                // get lsb
-                int sq = lsb(occupancy);
-
-                piece_squares[i][sq] = static_cast<Piece>(j);
-
-                // reset lsb
-                occupancy &= (occupancy - 1);
-            }
         }
     }
 }
@@ -155,14 +134,17 @@ void Board::recalibrate_occupancies(Color side, Piece piece, Square sq)
 
     piece_occupancies[side][piece] ^= mask;
     side_occupancy[side] ^= mask;
-
-    if ((mask & side_occupancy[side]) > 0) piece_squares[side][sq] = piece;
-    else piece_squares[side][sq] = none;
 }
 
 Piece Board::piece_at_square_for_side(Square sq, Color side)
 {
-    return piece_squares[side][sq];
+    u64 mask = 1ULL << sq;
+    for (int i = 0; i < NUM_PIECES; i++)
+    {
+        if ((mask & piece_occupancies[side][i]) > 0) return static_cast<Piece>(i);
+    }
+
+    return none;
 }
 
 u64 Board::get_move_mask(Piece piece, Square from_square, u64 full_occupancy, Color side, MoveType type)
@@ -203,43 +185,23 @@ u64 Board::get_move_mask(Piece piece, Square from_square, u64 full_occupancy, Co
     return move_mask;
 }
 
-u64 Board::squares_attacked_by(Color side)
+bool Board::side_attacked_on_square(Color side, Square sq)
 {
-    u64 attacked_squares = 0ULL;
-    u64 this_occupancy = side_occupancy[side];
+    u64 full_occupancy = (side_occupancy[WHITE] | side_occupancy[BLACK]) ^ (1ULL << sq);
+    u64 attacks_on_sq = 0ULL;
+    
+    attacks_on_sq |= (pawn_attacks[side][sq] & piece_occupancies[1-side][pawn]);
+    attacks_on_sq |= (knight_attacks[sq] & piece_occupancies[1-side][knight]);
+    attacks_on_sq |= (get_bishop_attack(sq, full_occupancy) & (piece_occupancies[1-side][bishop] | piece_occupancies[1-side][queen]));
+    attacks_on_sq |= (get_rook_attack(sq, full_occupancy) & (piece_occupancies[1-side][rook] | piece_occupancies[1-side][queen]));
+    attacks_on_sq |= (king_attacks[sq] & piece_occupancies[1-side][king]);
 
-    while (this_occupancy > 0)
-    {
-        // get next piece square
-        Square attacking_piece_sq = static_cast<Square>(lsb(this_occupancy));
-
-        // get attacking piece
-        Piece attacking_piece = piece_at_square_for_side(attacking_piece_sq, side);
-
-        // apply this piece's possible attacks to our total attacked_squares mask
-        attacked_squares |= get_move_mask(attacking_piece, attacking_piece_sq, side_occupancy[WHITE] | side_occupancy[BLACK], side, CAPTURE);
-
-        // reset lsb
-        this_occupancy &= (this_occupancy - 1);
-    }
-
-    return attacked_squares;
+    return attacks_on_sq > 0;
 }
 
 bool Board::in_check(Color side)
 {
-    u64 friendly_king = piece_occupancies[side][king];
-    Square friendly_king_square = static_cast<Square>(lsb(friendly_king));
-    u64 full_occupancy = (side_occupancy[WHITE] | side_occupancy[BLACK]) ^ (1ULL << friendly_king_square);
-    u64 attacks_on_king = 0ULL;
-    
-    attacks_on_king |= (pawn_attacks[side][friendly_king_square] & piece_occupancies[1-side][pawn]);
-    attacks_on_king |= (knight_attacks[friendly_king_square] & piece_occupancies[1-side][knight]);
-    attacks_on_king |= (get_bishop_attack(friendly_king_square, full_occupancy) & (piece_occupancies[1-side][bishop] | piece_occupancies[1-side][queen]));
-    attacks_on_king |= (get_rook_attack(friendly_king_square, full_occupancy) & (piece_occupancies[1-side][rook] | piece_occupancies[1-side][queen]));
-    attacks_on_king |= (king_attacks[friendly_king_square] & piece_occupancies[1-side][king]);
-
-    return attacks_on_king > 0;
+    return side_attacked_on_square(side, static_cast<Square>(lsb(piece_occupancies[side][king])));
 }
 
 void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type)
@@ -453,11 +415,10 @@ void Board::generate_castles(MoveList &moves)
     bool king_castle_right = king_castle_ability[side_to_move];
     bool queen_castle_right = queen_castle_ability[side_to_move];
     u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
-    u64 enemy_attacks = squares_attacked_by(static_cast<Color>(1-side_to_move));
     int side_offset = 56 * side_to_move;
 
     // if king is in check, don't generate castles
-    if ((enemy_attacks & piece_occupancies[side_to_move][king]) > 0) return;
+    if (in_check(side_to_move)) return;
 
     // handle king-side castle
     if (king_castle_right)
@@ -465,7 +426,7 @@ void Board::generate_castles(MoveList &moves)
         u64 king_side_castle_squares = 6ULL << side_offset;
 
         // only allow castle if pieces don't occupy king's path and king's path is not attacked
-        if ((full_occupancy & king_side_castle_squares) == 0 && (enemy_attacks & king_side_castle_squares) == 0)
+        if ( (full_occupancy & king_side_castle_squares) == 0 && !side_attacked_on_square(side_to_move, static_cast<Square>(f1 + side_offset)) && !side_attacked_on_square(side_to_move, static_cast<Square>(g1 + side_offset)) )
         {
             Square from_square = static_cast<Square>(e1 + side_offset);
             Square to_square = static_cast<Square>(g1 + side_offset);
@@ -479,17 +440,12 @@ void Board::generate_castles(MoveList &moves)
     {
         u64 queen_side_castle_squares = 112ULL << side_offset;
 
-        if ((full_occupancy & queen_side_castle_squares) == 0)
+        if ((full_occupancy & queen_side_castle_squares) == 0 && !side_attacked_on_square(side_to_move, static_cast<Square>(d1 + side_offset)) && !side_attacked_on_square(side_to_move, static_cast<Square>(c1 + side_offset)))
         {
-            queen_side_castle_squares ^= (1ULL << (b1 + side_offset));
+            Square from_square = static_cast<Square>(e1 + side_offset);
+            Square to_square = static_cast<Square>(c1 + side_offset);
 
-            if ((queen_side_castle_squares & enemy_attacks) == 0)
-            {
-                Square from_square = static_cast<Square>(e1 + side_offset);
-                Square to_square = static_cast<Square>(c1 + side_offset);
-
-                moves.add({from_square, to_square, QUEEN_CASTLE});
-            }
+            moves.add({from_square, to_square, QUEEN_CASTLE});
         }
     }
 }
@@ -538,6 +494,7 @@ PreviousState Board::make_move(Move move)
             recalibrate_occupancies(side_to_move, from_piece, to_square);
         }
     }
+    prev_state.moving_piece = from_piece;
     prev_state.piece_captured = to_piece;
 
     // reset en passant square
@@ -633,11 +590,7 @@ void Board::unmake_move(Move move, PreviousState prev_state)
     int en_passant_offset = 8 * (2 * move_color - 1);
 
     // extract attacking and captured piece, if any; apply capture
-    Piece moving_piece;
-    if (move_type >= KNIGHT_PROMOTION) moving_piece = pawn; 
-    else moving_piece = piece_at_square_for_side(to_square, move_color);
-
-
+    Piece moving_piece = prev_state.moving_piece;
     Piece taken_piece = prev_state.piece_captured;
     if (move_type == CAPTURE || move_type >= KNIGHT_PROMOTION_CAPTURE)
     {
