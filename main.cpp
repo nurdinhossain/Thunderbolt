@@ -5,7 +5,9 @@ using namespace std;
 int main()
 {
     setup();
+
     Board board("r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQ1RK1 w - - 8 6");
+    cout << board.to_fen() << endl;
     Negamax search;
 
     for (int i = 1; i < 99; i++)

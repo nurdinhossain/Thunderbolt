@@ -149,6 +149,122 @@ void Board::from_fen(string fen)
     hash_history[hash_history_index++] = hash;
 }
 
+string Board::to_fen()
+{
+    string fen = "";
+    int empty_squares = 0;
+
+    // piece occupancies
+    for (int i = NUM_SQUARES-1; i >= 0; i--)
+    {
+        Piece white_piece = piece_at_square_for_side(static_cast<Square>(i), WHITE);
+        Piece black_piece = piece_at_square_for_side(static_cast<Square>(i), BLACK);
+
+        if (white_piece != none)
+        {
+            if (empty_squares > 0)
+            {
+                fen += '0' + empty_squares;
+                empty_squares = 0;
+            }
+            switch (white_piece)
+            {
+                case pawn:
+                    fen += "P";
+                    break;
+                case knight:
+                    fen += "N";
+                    break;
+                case bishop:
+                    fen += "B";
+                    break;
+                case rook:
+                    fen += "R";
+                    break;
+                case queen:
+                    fen += "Q";
+                    break;
+                case king:
+                    fen += "K";
+                    break;
+            }
+        }
+        else if (black_piece != none)
+        {
+            if (empty_squares > 0)
+            {
+                fen += '0' + empty_squares;
+                empty_squares = 0;
+            }
+            switch (black_piece)
+            {
+                case pawn:
+                    fen += "p";
+                    break;
+                case knight:
+                    fen += "n";
+                    break;
+                case bishop:
+                    fen += "b";
+                    break;
+                case rook:
+                    fen += "r";
+                    break;
+                case queen:
+                    fen += "q";
+                    break;
+                case king:
+                    fen += "k";
+                    break;
+            }
+        }
+        else
+        {
+            empty_squares++;
+        }
+
+        if (i % NUM_FILES == 0) 
+        {
+            if (empty_squares > 0)
+            {
+                fen += '0' + empty_squares;
+                empty_squares = 0;
+            }
+            if (i > 0) fen += "/";
+        }
+    }
+
+    // side occupancy
+    if (side_to_move == WHITE) fen += " w ";
+    else fen += " b ";
+
+    // castling rights
+    if (king_castle_ability[WHITE]) fen += "K";
+    if (queen_castle_ability[WHITE]) fen += "Q";
+    if (king_castle_ability[BLACK]) fen += "k";
+    if (queen_castle_ability[BLACK]) fen += "q";
+    if (fen[fen.size()-1] == ' ') fen += "-";
+    fen += " ";
+
+    // en passant
+    if (en_passant_square != null)
+    {
+        fen += stringify_square(en_passant_square) + " ";
+    }
+    else
+    {
+        fen += "- ";
+    }
+
+    // half moves
+    fen += to_string(half_moves) + " ";
+
+    // full moves
+    fen += to_string(full_moves);
+
+    return fen;
+}
+
 Color Board::get_side_to_move()
 {
     return side_to_move;

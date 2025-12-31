@@ -83,6 +83,7 @@ class Board
         void run_suite(vector<string>& fens, vector<int>& depths);
 
         void from_fen(string fen);
+        string to_fen();
         void print(); 
 };
 
