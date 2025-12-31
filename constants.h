@@ -14,6 +14,7 @@ using namespace std;
 #define ROOK_MAGIC_BITS 14
 
 #define MAX_MOVES 256
+#define MAX_HASH_HISTORY 1024
 
 // colors
 typedef enum Color {

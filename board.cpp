@@ -143,6 +143,10 @@ void Board::from_fen(string fen)
         int ep_file = en_passant_square % NUM_FILES;
         hash ^= en_passant_zobrists[ep_file];
     }
+
+    // init hash history
+    hash_history_index = 0;
+    hash_history[hash_history_index++] = hash;
 }
 
 Color Board::get_side_to_move()
@@ -658,6 +662,9 @@ PreviousState Board::make_move(Move move)
     if (en_passant_square != null) hash ^= en_passant_zobrists[en_passant_square % NUM_FILES];
     hash ^= side_zobrist;
 
+    // update hash history
+    hash_history[hash_history_index++] = hash;
+
     return prev_state;
 }
 
@@ -741,8 +748,33 @@ void Board::unmake_move(Move move, PreviousState prev_state)
 
     // update full moves
     if (side_to_move == BLACK) full_moves--;
+
+   // update hash history
+    hash_history_index--;
 }
 
+bool Board::is_50_move_draw()
+{
+    return half_moves >= 100;
+}
+
+bool Board::is_repeat()
+{
+    int decrement = 4;
+
+    while (decrement <= half_moves)
+    {
+        if (hash_history[hash_history_index-1] == hash_history[hash_history_index-1-decrement]) return true;
+        decrement += 2;
+    }
+
+    return false;
+}
+
+bool Board::is_insufficient_material()
+{
+    return side_occupancy[WHITE] == piece_occupancies[WHITE][king] && side_occupancy[BLACK] == piece_occupancies[BLACK][king];
+}
 
 /* TESTING */
 int Board::perft(int depth)
@@ -930,3 +962,17 @@ for (int i = 0; i < fens.size(); i++)
 }
 
 cout << "End of test. Board hash is stable. :D" << endl;*/
+
+/* DRAW REPETITION TEST */
+/*Board board;
+cout << board.is_repeat() << endl;
+board.make_move({g1, f3, QUIET});
+cout << board.is_repeat() << endl;
+board.make_move({g8, f6, QUIET});
+cout << board.is_repeat() << endl;
+board.make_move({f3, g1, QUIET});
+cout << board.is_repeat() << endl;
+board.make_move({f6, g8, QUIET});
+cout << board.is_repeat() << endl;
+board.make_move({g1, f3, QUIET});
+cout << board.is_repeat() << endl;*/

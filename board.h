@@ -18,6 +18,8 @@ class Board
         int full_moves;
 
         u64 hash;
+        u64 hash_history[MAX_HASH_HISTORY];
+        int hash_history_index;
     public:   
         Board();
         Board(string fen);
@@ -70,6 +72,11 @@ class Board
         // make/un-make moves
         PreviousState make_move(Move move);
         void unmake_move(Move move, PreviousState prev_state);
+
+        // draw stuff for search
+        bool is_50_move_draw();
+        bool is_repeat();
+        bool is_insufficient_material();
 
         // methods for testing
         int perft(int depth);
