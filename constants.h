@@ -16,6 +16,10 @@ using namespace std;
 #define MAX_MOVES 256
 #define MAX_HASH_HISTORY 1024
 
+#define MAX_BOUND 99999
+#define CHECKMATE_SCORE 9999
+#define DRAW_SCORE 0
+
 // colors
 typedef enum Color {
     WHITE,

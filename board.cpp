@@ -857,13 +857,6 @@ void setup()
     generate_zobrists();
 }
 
-int main()
-{
-    setup();
-
-    return 0;
-}
-
 /* FEN SUITE TEST */
 /*Board board;
 vector<string> fens = {
