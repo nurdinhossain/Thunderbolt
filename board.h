@@ -25,6 +25,7 @@ class Board
         /* GENERAL HELPER METHODS */
         Color get_side_to_move();
         u64 get_piece_occupancy(Color side, Piece piece);
+        u64 get_hash();
 
         void calibrate_occupancies();
         void recalibrate_occupancies(Color side, Piece piece, Square sq);

@@ -155,6 +155,11 @@ u64 Board::get_piece_occupancy(Color side, Piece piece)
     return piece_occupancies[side][piece];
 }
 
+u64 Board::get_hash()
+{
+    return hash;
+}
+
 void Board::calibrate_occupancies()
 {
     // zero out side occupancies
@@ -512,6 +517,7 @@ PreviousState Board::make_move(Move move)
     prev_state.king_castle_ability[BLACK] = king_castle_ability[BLACK];
     prev_state.queen_castle_ability[WHITE] = queen_castle_ability[WHITE];
     prev_state.queen_castle_ability[BLACK] = queen_castle_ability[BLACK];
+    prev_state.old_hash = hash;
 
     // extract info from move
     Square from_square = move.from;
@@ -531,26 +537,34 @@ PreviousState Board::make_move(Move move)
         to_piece = piece_at_square_for_side(to_square, enemy_color);
 
         recalibrate_occupancies(enemy_color, to_piece, to_square);
+        hash ^= piece_zobrists[enemy_color][to_piece][to_square];
 
         if (move_type == CAPTURE) 
         {
             recalibrate_occupancies(side_to_move, from_piece, to_square);
+            hash ^= piece_zobrists[side_to_move][from_piece][to_square];
         }
     }
     prev_state.moving_piece = from_piece;
     prev_state.piece_captured = to_piece;
 
-    // reset en passant square
-    en_passant_square = null;
+    // reset en passant square and reset zobrist hash if needed
+    if (en_passant_square != null)
+    {
+        hash ^= en_passant_zobrists[en_passant_square % NUM_FILES];
+        en_passant_square = null;
+    }
 
     // remove moving piece from its starting square
     recalibrate_occupancies(side_to_move, from_piece, from_square);
+    hash ^= piece_zobrists[side_to_move][from_piece][from_square];
 
     // apply move normally if its not a promotion
     if (move_type < KNIGHT_PROMOTION && move_type != CAPTURE)
     {
         // add moving piece to its destination square
         recalibrate_occupancies(side_to_move, from_piece, to_square);
+        hash ^= piece_zobrists[side_to_move][from_piece][to_square];
 
         // deal with all the other fun stuff 
         if (move_type == DOUBLE_PAWN_PUSH) en_passant_square = static_cast<Square>(to_square + en_passant_offset);
@@ -560,6 +574,8 @@ PreviousState Board::make_move(Move move)
             // move king side rook
             recalibrate_occupancies(side_to_move, rook, static_cast<Square>(h1 + side_offset));
             recalibrate_occupancies(side_to_move, rook, static_cast<Square>(f1 + side_offset));
+            hash ^= piece_zobrists[side_to_move][rook][h1 + side_offset];
+            hash ^= piece_zobrists[side_to_move][rook][f1 + side_offset];
         }
 
         else if (move_type == QUEEN_CASTLE)
@@ -567,11 +583,14 @@ PreviousState Board::make_move(Move move)
             // move queen side rook
             recalibrate_occupancies(side_to_move, rook, static_cast<Square>(a1 + side_offset));
             recalibrate_occupancies(side_to_move, rook, static_cast<Square>(d1 + side_offset));
+            hash ^= piece_zobrists[side_to_move][rook][a1 + side_offset];
+            hash ^= piece_zobrists[side_to_move][rook][d1 + side_offset];
         }
 
         else if (move_type == EN_PASSANT_CAPTURE) 
         {
             recalibrate_occupancies(enemy_color, pawn, static_cast<Square>(to_square + en_passant_offset));
+            hash ^= piece_zobrists[enemy_color][pawn][to_square + en_passant_offset];
         }
     }
     else if (move_type >= KNIGHT_PROMOTION)
@@ -580,24 +599,50 @@ PreviousState Board::make_move(Move move)
         if (move_type >= KNIGHT_PROMOTION_CAPTURE) 
         {
             recalibrate_occupancies(side_to_move, static_cast<Piece>(move_type-KNIGHT_PROMOTION_CAPTURE + 1), to_square);
+            hash ^= piece_zobrists[side_to_move][move_type-KNIGHT_PROMOTION_CAPTURE + 1][to_square];
         }
         else 
         {
             recalibrate_occupancies(side_to_move, static_cast<Piece>(move_type-KNIGHT_PROMOTION + 1), to_square);
+            hash ^= piece_zobrists[side_to_move][move_type-KNIGHT_PROMOTION + 1][to_square];
         }
     }
 
     // update castling rights
     if (from_piece == king || move_type == KING_CASTLE || move_type == QUEEN_CASTLE)
     {
-        king_castle_ability[side_to_move] = false;
-        queen_castle_ability[side_to_move] = false;
+        if (king_castle_ability[side_to_move])
+        {
+            king_castle_ability[side_to_move] = false;
+            hash ^= king_castle_zobrists[side_to_move];
+        }
+        if (queen_castle_ability[side_to_move])
+        {
+            queen_castle_ability[side_to_move] = false;
+            hash ^= queen_castle_zobrists[side_to_move];
+        }
     }
-    else if (from_piece == rook && from_square == (h1 + side_offset)) king_castle_ability[side_to_move] = false;
-    else if (from_piece == rook && from_square == (a1 + side_offset)) queen_castle_ability[side_to_move] = false;
+    else if (from_piece == rook && from_square == (h1 + side_offset) && king_castle_ability[side_to_move]) 
+    {
+        king_castle_ability[side_to_move] = false;
+        hash ^= king_castle_zobrists[side_to_move];
+    }
+    else if (from_piece == rook && from_square == (a1 + side_offset) && queen_castle_ability[side_to_move]) 
+    {
+        queen_castle_ability[side_to_move] = false;
+        hash ^= queen_castle_zobrists[side_to_move];
+    }
 
-    if (to_piece == rook && to_square == (h1 + 56 * enemy_color)) king_castle_ability[enemy_color] = false;
-    else if (to_piece == rook && to_square == (a1 + 56 * enemy_color)) queen_castle_ability[enemy_color] = false;
+    if (to_piece == rook && to_square == (h1 + 56 * enemy_color) && king_castle_ability[enemy_color]) 
+    {
+        king_castle_ability[enemy_color] = false;
+        hash ^= king_castle_zobrists[enemy_color];
+    }
+    else if (to_piece == rook && to_square == (a1 + 56 * enemy_color) && queen_castle_ability[enemy_color]) 
+    {
+        queen_castle_ability[enemy_color] = false;
+        hash ^= queen_castle_zobrists[enemy_color];
+    }
 
     // update 50 move rule 
     half_moves++; 
@@ -608,6 +653,10 @@ PreviousState Board::make_move(Move move)
 
     // update side-to-move
     side_to_move = enemy_color;
+
+    // update en passant and side zobrists
+    if (en_passant_square != null) hash ^= en_passant_zobrists[en_passant_square % NUM_FILES];
+    hash ^= side_zobrist;
 
     return prev_state;
 }
@@ -621,6 +670,7 @@ void Board::unmake_move(Move move, PreviousState prev_state)
     king_castle_ability[BLACK] = prev_state.king_castle_ability[BLACK];
     queen_castle_ability[WHITE] = prev_state.queen_castle_ability[WHITE];
     queen_castle_ability[BLACK] = prev_state.queen_castle_ability[BLACK];
+    hash = prev_state.old_hash;
 
     // extract info from move
     Square from_square = move.from;
@@ -794,3 +844,89 @@ vector<string> fens = {
 };
 vector<int> depths = {6, 5, 7, 5, 5, 5};
 board.run_suite(fens, depths);*/
+
+/* ZOBRIST INIT AND MAKE/UNMAKE TEST */
+/*unordered_set<u64> hashes;
+Board board;
+vector<string> fens = {
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w Qkq - 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQ - 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w q - 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w K - 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w kq - 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b q - 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e3 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq b3 0 1",
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq c6 0 1",
+    "3B3N/3k4/B1n1N3/1p1p2R1/1p6/Q4KP1/4p2r/1n6 w - - 0 1",
+    "8/1P1p4/2k5/p2RbQ1q/PPP5/3KR3/3p1p2/1n6 w - - 0 1",
+    "8/1pBp1P2/1K1p3p/6q1/p4Prp/R4P2/4P1k1/8 w - - 0 1",
+    "8/3P1pp1/PP1k4/NK6/B4PRP/4Bp2/7p/2Q5 w - - 0 1",
+    "1q5r/p1p4P/b6b/PpK3p1/P5p1/R3N3/8/1k6 w - - 0 1",
+    "N2R4/4r2P/1r2b2p/qP2N3/3p1P1K/7P/1p6/3k4 w - - 0 1",
+    "b1B3K1/2P5/1p4P1/P1n1R1pp/8/6k1/3NPp2/B7 w - - 0 1",
+    "1R6/2p1p1K1/q6P/1P6/Q1B1p3/7R/p3b1Pb/6k1 w - - 0 1",
+    "Rb2B3/1brp2k1/1pp3P1/8/4P2P/8/pNK5/r7 w - - 0 1",
+    "R3b1Q1/3P4/6Np/4KP2/p3p3/5PP1/1k3pq1/b7 w - - 0 1",
+    "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+    "rnbqkbnr/pppppp1p/8/6p1/4P3/8/PPPP1PPP/RNBQKBNR w KQkq g6 0 2",
+    "rnbqkbnr/pppppp1p/8/6p1/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 2",
+    "rnbqkbnr/pppp1p1p/8/4p1p1/4P3/2N5/PPPP1PPP/R1BQKBNR w KQkq e6 0 3",
+    "rnbqkbnr/pppp1p1p/8/4p1p1/4P3/2N2N2/PPPP1PPP/R1BQKB1R b KQkq - 1 3",
+    "rnbqkbnr/pppp3p/8/4ppp1/4P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq f6 0 4",
+    "rnbqkbnr/pppp3p/8/4ppp1/4P3/2N2N2/PPPPQPPP/R1B1KB1R b KQkq - 1 4",
+    "rnbqkbnr/pp1p3p/8/2p1ppp1/4P3/2N2N2/PPPPQPPP/R1B1KB1R w KQkq c6 0 5",
+    "rnbqkbnr/pp1p3p/8/2p1ppp1/3PP3/2N2N2/PPP1QPPP/R1B1KB1R b KQkq d3 0 5",
+    "rnb1kbnr/pp1p3p/8/q1p1ppp1/3PP3/2N2N2/PPP1QPPP/R1B1KB1R w KQkq - 1 6",
+    "rnb1kbnr/pp1p3p/8/q1p1ppB1/3PP3/2N2N2/PPP1QPPP/R3KB1R b KQkq - 0 6",
+    "rnb1k1nr/pp1p3p/3b4/q1p1ppB1/3PP3/2N2N2/PPP1QPPP/R3KB1R w KQkq - 1 7",
+    "rnb1k1nr/pp1p3p/3b4/q1p1ppB1/3PP3/2N2N2/PPP1QPPP/2KR1B1R b kq - 2 7",
+    "r1b1k1nr/pp1p3p/n2b4/q1p1ppB1/3PP3/2N2N2/PPP1QPPP/2KR1B1R w kq - 3 8",
+    "r1b1k1nr/pp1p3p/Q2b4/q1p1ppB1/3PP3/2N2N2/PPP2PPP/2KR1B1R b kq - 0 8",
+    "r1b1k1nr/pp1p3p/q2b4/2p1ppB1/3PP3/2N2N2/PPP2PPP/2KR1B1R w kq - 0 9",
+    "r1b1k1nr/pp1p3p/q2b4/2p1ppB1/3PP3/2NR1N2/PPP2PPP/2K2B1R b kq - 1 9",
+    "1rb1k1nr/pp1p3p/q2b4/2p1ppB1/3PP3/2NR1N2/PPP2PPP/2K2B1R w k - 2 10",
+    "1rb1k1nr/pp1p3p/q2b4/2p1ppB1/3PP3/2NR1N2/PPP1BPPP/2K4R b k - 3 10",
+    "1rb1k2r/pp1p3p/q2b1n2/2p1ppB1/3PP3/2NR1N2/PPP1BPPP/2K4R w k - 4 11",
+    "1rb1k2r/pp1p3p/q2b1n2/2p1pPB1/3P4/2NR1N2/PPP1BPPP/2K4R b k - 0 11",
+    "1rb1kr2/pp1p3p/q2b1n2/2p1pPB1/3P4/2NR1N2/PPP1BPPP/2K4R w - - 1 12"
+};
+
+for (int i = 0; i < fens.size(); i++)
+{
+    board.from_fen(fens[i]);
+
+    // test for hash uniqueness 
+    if (hashes.find(board.get_hash()) != hashes.end())
+    {
+        cout << "Error. Board hash is not unique. Ending test." << endl;
+        return -1;
+    }
+
+    hashes.insert(board.get_hash());
+
+    // test for proper make/unmake hash behavior
+    MoveList moves;
+    board.generate_pseudo_legal_moves(moves);
+    for (int j = 0; j < moves.count; j++)
+    {
+        Move m = moves.moves[j];
+        u64 old_hash = board.get_hash();
+        PreviousState prev = board.make_move(m);
+        if (board.get_hash() == old_hash)
+        {
+            cout << "Error. Board hash has not changed after making a move. Ending test." << endl;
+            return -1;
+        }
+        board.unmake_move(m, prev);
+        if (board.get_hash() != old_hash)
+        {
+            cout << "Error. Board hash has not stayed intact after unmaking move. Ending test." << endl;
+            return -1; 
+        }
+    }
+}
+
+cout << "End of test. Board hash is stable. :D" << endl;*/

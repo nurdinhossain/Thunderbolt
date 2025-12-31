@@ -44,6 +44,7 @@ typedef struct PreviousState {
     bool queen_castle_ability[NUM_COLORS];
     Square en_passant_square;
     int half_moves;
+    u64 old_hash;
 
     Piece moving_piece;
     Piece piece_captured;
