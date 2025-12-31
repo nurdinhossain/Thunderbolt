@@ -13,6 +13,14 @@ u64 rook_masks[NUM_SQUARES] = {0};
 u64 bishop_masks[NUM_SQUARES] = {0};
 u64 sliding_masks[NUM_SQUARES] = {0};
 
+u64 piece_zobrists[NUM_COLORS][NUM_PIECES][NUM_SQUARES] = {0};
+u64 side_zobrist = 0;
+u64 king_castle_zobrists[NUM_COLORS] = {0};
+u64 queen_castle_zobrists[NUM_COLORS] = {0};
+u64 en_passant_zobrists[NUM_FILES] = {0};
+
+u64 seed = 1234567890123456789ULL;
+
 void generate_static_masks()
 {
     // generate file and rank masks simultaneously
@@ -195,6 +203,45 @@ void generate_static_bitboards()
     generate_rook_masks();
     generate_bishop_masks();
     generate_sliding_masks();
+}
+
+void generate_zobrists()
+{
+    // generate piece zobrists
+    for (int i = 0; i < NUM_COLORS; i++)
+    {
+        for (int j = 0; j < NUM_PIECES; j++)
+        {
+            for (int k = 0; k < NUM_SQUARES; k++)
+            {
+                piece_zobrists[i][j][k] = rng();
+            }
+        }
+    }
+
+    // generate side zobrist
+    side_zobrist = rng();
+
+    // generate castling rights zobrists
+    for (int i = 0; i < NUM_COLORS; i++)
+    {
+        king_castle_zobrists[i] = rng();
+        queen_castle_zobrists[i] = rng();
+    }
+
+    // generate en passant zobrists
+    for (int i = 0; i < NUM_FILES; i++)
+    {
+        en_passant_zobrists[i] = rng();
+    }
+}
+
+u64 rng()
+{
+    seed ^= (seed << 13);
+    seed ^= (seed >> 17);
+    seed ^= (seed << 5);
+    return seed;
 }
 
 string stringify_square(Square sq)

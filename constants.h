@@ -75,6 +75,16 @@ extern u64 bishop_masks[NUM_SQUARES];
 // sliding attack masks
 extern u64 sliding_masks[NUM_SQUARES];
 
+// zobrist hashing
+extern u64 piece_zobrists[NUM_COLORS][NUM_PIECES][NUM_SQUARES];
+extern u64 side_zobrist;
+extern u64 king_castle_zobrists[NUM_COLORS];
+extern u64 queen_castle_zobrists[NUM_COLORS];
+extern u64 en_passant_zobrists[NUM_FILES];
+
+// seed number for rng
+extern u64 seed;
+
 // generate static masks
 void generate_static_masks();
 
@@ -99,6 +109,12 @@ void generate_sliding_masks();
 
 // generate all static bitboards
 void generate_static_bitboards();
+
+// generate zobrists
+void generate_zobrists();
+
+// function to generate random number
+u64 rng();
 
 // return string version of square
 string stringify_square(Square sq);

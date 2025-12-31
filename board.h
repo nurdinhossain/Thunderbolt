@@ -16,11 +16,16 @@ class Board
         Square en_passant_square;
         int half_moves;
         int full_moves;
+
+        u64 hash;
     public:   
         Board();
         Board(string fen);
 
         /* GENERAL HELPER METHODS */
+        Color get_side_to_move();
+        u64 get_piece_occupancy(Color side, Piece piece);
+
         void calibrate_occupancies();
         void recalibrate_occupancies(Color side, Piece piece, Square sq);
 

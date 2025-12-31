@@ -8,16 +8,6 @@ u64 rook_magics[NUM_SQUARES] = {0};
 u64 bishop_attacks[NUM_SQUARES][1ULL << BISHOP_MAGIC_BITS] = {0};
 u64 rook_attacks[NUM_SQUARES][1ULL << ROOK_MAGIC_BITS] = {0};
 
-u64 seed = 1;
-
-u64 rng()
-{
-    seed ^= (seed << 13);
-    seed ^= (seed << 7);
-    seed ^= (seed >> 17);
-    return seed;
-}
-
 void generate_magics(Piece piece)
 {
     // validity checking
