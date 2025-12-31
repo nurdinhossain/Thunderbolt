@@ -1,7 +1,15 @@
 #include "negamax.h"
 
+Negamax::Negamax()
+{
+    stats.nodes_searched = 0;
+}
+
 int Negamax::search(Board& board, int depth, int ply)
 {
+    // increment nodes searched
+    stats.nodes_searched++;
+
     if (depth == 0) return eval.eval(board);
 
     int max = -MAX_BOUND;
@@ -44,4 +52,9 @@ int Negamax::search(Board& board, int depth, int ply)
 Move Negamax::get_best_move()
 {
     return best_move;
+}
+
+SearchStats Negamax::get_stats()
+{
+    return stats;
 }
