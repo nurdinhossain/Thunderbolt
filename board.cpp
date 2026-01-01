@@ -187,6 +187,9 @@ string Board::to_fen()
                 case king:
                     fen += "K";
                     break;
+                case none:
+                    cout << "Error." << endl;
+                    break;
             }
         }
         else if (black_piece != none)
@@ -215,6 +218,9 @@ string Board::to_fen()
                     break;
                 case king:
                     fen += "k";
+                    break;
+                case none:
+                    cout << "Error." << endl;
                     break;
             }
         }
