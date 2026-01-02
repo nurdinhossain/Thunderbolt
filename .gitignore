@@ -1,1 +1,9 @@
-bitboard.dSYM
+*
+!*.*
+!*/
+
+# ABOVE IGNORES ALL EXECUTABLES WITHOUT EXTENSION
+
+*.dSYM
+.DS_Store
+pgns
