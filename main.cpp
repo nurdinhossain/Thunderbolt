@@ -1,12 +1,29 @@
 #include "negamax.h"
 #include <iostream>
-using namespace std; 
 
 int main()
 {
     setup();
 
-    Board board("r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQ1RK1 w - - 8 6");
+    Board::pgn_to_opening_book("pgns/Belgrade2022-GP2.pgn");
+    Board::pgn_to_opening_book("pgns/Berlin2022-GP1.pgn");
+    Board::pgn_to_opening_book("pgns/Berlin2022-GP3.pgn");
+    Board::pgn_to_opening_book("pgns/Bucharest2022.pgn");
+    Board::pgn_to_opening_book("pgns/Bucharest2023.pgn");
+    Board::pgn_to_opening_book("pgns/Chennai2024.pgn");
+    Board::pgn_to_opening_book("pgns/Dusseldorf2023.pgn");
+    Board::pgn_to_opening_book("pgns/SaintLouis2022-Sinq.pgn");
+    Board::pgn_to_opening_book("pgns/SaintLouis2022.pgn");
+    Board::pgn_to_opening_book("pgns/SaintLouis2023.pgn");
+    Board::pgn_to_opening_book("pgns/Stavanger2022.pgn");
+    Board::pgn_to_opening_book("pgns/Stavanger2022a.pgn");
+    Board::pgn_to_opening_book("pgns/Stavanger2023.pgn");
+    Board::pgn_to_opening_book("pgns/Stavanger2024.pgn");
+    Board::pgn_to_opening_book("pgns/WijkaanZee2022.pgn");
+    Board::pgn_to_opening_book("pgns/WijkaanZee2023.pgn");
+    Board::pgn_to_opening_book("pgns/WijkaanZee2024.pgn");
+
+    /*Board board;
     cout << board.to_fen() << endl;
     Negamax search;
 
@@ -16,8 +33,8 @@ int main()
         Move best_move = search.get_best_move();
         SearchStats stats = search.get_stats();
         cout << "Depth: " << i << ", " << "Score: " << score << ", " << "Best move: " << stringify_square(best_move.from) << stringify_square(best_move.to);
-        cout << ", Nodes seaerched: " << stats.nodes_searched << endl; 
-    }
+        cout << ", Nodes searched: " << stats.nodes_searched << endl; 
+    }*/
 
     return 0;
 }

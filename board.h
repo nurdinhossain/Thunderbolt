@@ -3,11 +3,13 @@
 #include "move.h"
 #include <string>
 #include <vector>
+#include <unordered_map>
 using namespace std;
 
 class Board
 {
     private:
+        // game-relevant information
         u64 piece_occupancies[NUM_COLORS][NUM_PIECES];
         u64 side_occupancy[NUM_COLORS];
         Color side_to_move;
@@ -17,9 +19,13 @@ class Board
         int half_moves;
         int full_moves;
 
+        // hashing
         u64 hash;
         u64 hash_history[MAX_HASH_HISTORY];
         int hash_history_index;
+
+        // opening book
+        static unordered_map<u64, vector<Move>> opening_book;
     public:   
         Board();
         Board(string fen);
@@ -82,9 +88,15 @@ class Board
         int perft(int depth);
         void run_suite(vector<string>& fens, vector<int>& depths);
 
+        // fen stuff + displaying board
         void from_fen(string fen);
         string to_fen();
         void print(); 
+
+        // opening book generation
+        static u64 get_occupancy_mask(Board& board, Piece piece, Square sq);
+        static Move interpret_algebraic_move(Board& board, string algebraic_move);
+        static void pgn_to_opening_book(string file_name);
 };
 
 // run basic setup methods

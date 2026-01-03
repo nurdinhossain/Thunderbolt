@@ -2,6 +2,7 @@
 #include "sliding.h"
 #include <iostream>
 #include <chrono>
+#include <fstream>
 
 Board::Board()
 {
@@ -969,6 +970,305 @@ void Board::print()
         cout << "|" << endl;
     }
     cout << "+---+---+---+---+---+---+---+---+" << endl;
+}
+
+/* OPENING BOOK */
+u64 Board::get_occupancy_mask(Board& board, Piece piece, Square sq)
+{
+    u64 full_occupancy = (board.side_occupancy[WHITE] | board.side_occupancy[BLACK]) ^ (1ULL << sq); 
+
+    switch (piece)
+    {
+        case knight:
+            return knight_attacks[sq];
+        case bishop:
+            return get_bishop_attack(sq, full_occupancy);
+        case rook:
+            return get_rook_attack(sq, full_occupancy);
+        case queen:
+            return get_bishop_attack(sq, full_occupancy) | get_rook_attack(sq, full_occupancy);
+        case king:
+            return king_attacks[sq];
+        default:
+            cout << "Error" << endl;
+            return 0ULL;
+    }
+}
+
+Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
+{
+    // pawn moves
+    char first_char = algebraic_move[0];
+    if (first_char >= 'a' && first_char <= 'h')
+    {
+        int from_file = 'h' - first_char;
+
+        // if second char is 'x', this is a 'pawn captures piece move'
+        if (algebraic_move[1] == 'x')
+        {
+            int to_file = 'h' - algebraic_move[2];
+            int to_rank = algebraic_move[3] - '1';
+            int from_rank;
+
+            if (board.get_side_to_move() == WHITE) from_rank = to_rank - 1;
+            else from_rank = to_rank + 1;
+
+            // generate move
+            Square from_square = static_cast<Square>(from_rank * NUM_FILES + from_file);
+            Square to_square = static_cast<Square>(to_rank * NUM_FILES + to_file);
+
+            // check if this is en passant
+            if (board.piece_at_square_for_side(to_square, static_cast<Color>(1-board.get_side_to_move())) == none) return {from_square, to_square, EN_PASSANT_CAPTURE};
+
+            // check if this is a promo capture
+            if (to_rank == rank_8 || to_rank == rank_1)
+            {
+                switch (algebraic_move[5])
+                {
+                    case 'N':
+                        return {from_square, to_square, KNIGHT_PROMOTION_CAPTURE};
+                    case 'B':
+                        return {from_square, to_square, BISHOP_PROMOTION_CAPTURE};
+                    case 'R':
+                        return {from_square, to_square, ROOK_PROMOTION_CAPTURE};
+                    case 'Q':
+                        return {from_square, to_square, QUEEN_PROMOTION_CAPTURE};
+                    default:
+                        cout << "ERROR" << endl;
+                        return {null, null, QUIET};
+                }
+            }
+
+            // otherise, this is a regular capture
+            return {from_square, to_square, CAPTURE};
+        }
+
+        // otherwise, this is a quiet pawn push or promotion
+        else
+        {
+            int to_rank = algebraic_move[1] - '1';
+            int to_file = 'h' - algebraic_move[0];
+            int from_file = to_file;
+            int from_rank;
+            if (board.get_side_to_move() == WHITE)
+            {
+                Square potential_from_square = static_cast<Square>((to_rank - 1) * NUM_FILES + from_file);
+                if (board.piece_at_square_for_side(potential_from_square, WHITE) == pawn) from_rank = to_rank - 1;
+                else
+                {
+                    Square from_square = static_cast<Square>((to_rank - 2) * NUM_FILES + from_file);
+                    Square to_square = static_cast<Square>(to_rank * NUM_FILES + to_file);
+                    return {from_square, to_square, DOUBLE_PAWN_PUSH};
+                }
+            }
+            else
+            {
+                Square potential_from_square = static_cast<Square>((to_rank + 1) * NUM_FILES + from_file);
+                if (board.piece_at_square_for_side(potential_from_square, BLACK) == pawn) from_rank = to_rank + 1;
+                else
+                {
+                    Square from_square = static_cast<Square>((to_rank + 2) * NUM_FILES + from_file);
+                    Square to_square = static_cast<Square>(to_rank * NUM_FILES + to_file);
+                    return {from_square, to_square, DOUBLE_PAWN_PUSH};
+                }
+            }
+
+            Square from_square = static_cast<Square>(from_rank * NUM_FILES + from_file);
+            Square to_square = static_cast<Square>(to_rank * NUM_FILES + to_file);
+
+            // check for promotion
+            if (to_rank == rank_1 || to_rank == rank_8)
+            {
+                switch (algebraic_move[3])
+                {
+                    case 'N':
+                        return {from_square, to_square, KNIGHT_PROMOTION};
+                    case 'B':
+                        return {from_square, to_square, BISHOP_PROMOTION};
+                    case 'R':
+                        return {from_square, to_square, ROOK_PROMOTION};
+                    case 'Q':
+                        return {from_square, to_square, QUEEN_PROMOTION};
+                    default:
+                        cout << "ERROR" << endl;
+                        return {null, null, QUIET};
+                }
+            }
+
+            // single push
+            return {from_square, to_square, QUIET};
+        }
+    }
+
+    // castles
+    if (algebraic_move[0] == 'O')
+    {
+        if ((algebraic_move.size() == 3 || algebraic_move[3] != '-'))
+        {
+            if (board.get_side_to_move() == WHITE) return {e1, g1, KING_CASTLE};
+            else return {e8, g8, KING_CASTLE};
+        }
+        else
+        {
+            if (board.get_side_to_move() == WHITE) return {e1, c1, QUEEN_CASTLE};
+            else return {e8, c8, QUEEN_CASTLE}; 
+        }
+    }
+
+    // other pieces
+    char char_piece = algebraic_move[0];
+    Piece piece;
+    switch (char_piece)
+    {
+        case 'N':
+            piece = knight;
+            break;
+        case 'B':
+            piece = bishop;
+            break;
+        case 'R':
+            piece = rook;
+            break;
+        case 'Q':
+            piece = queen;
+            break;
+        case 'K':
+            piece = king;
+            break;
+        default:
+            piece = none;
+            cout << "Error" << endl;
+            break;
+    }
+    if (algebraic_move[1] == 'x')
+    {
+        Square to_square = static_cast<Square>( (algebraic_move[3] - '1') * NUM_FILES + ('h' - algebraic_move[2]) );
+        Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & get_occupancy_mask(board, piece, to_square) ) );
+        return {from_square, to_square, CAPTURE};
+    }
+    if (algebraic_move[2] == 'x')
+    {
+        if (algebraic_move[1] >= '1' && algebraic_move[1] <= '8' && algebraic_move[3] >= 'a' && algebraic_move[3] <= 'h' && algebraic_move[4] >= '1' && algebraic_move[4] <= '8')
+        {
+            int from_rank = algebraic_move[1] - '1';
+            Square to_square = static_cast<Square>( (algebraic_move[4] - '1') * NUM_FILES + ('h' - algebraic_move[3]) );
+            Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & rank_masks[from_rank] & get_occupancy_mask(board, piece, to_square) ) );
+            return {from_square, to_square, CAPTURE};
+        }
+
+        if (algebraic_move[1] >= 'a' && algebraic_move[1] <= 'h' && algebraic_move[3] >= 'a' && algebraic_move[3] <= 'h' && algebraic_move[4] >= '1' && algebraic_move[4] <= '8')
+        {
+            int from_file = 'h' - algebraic_move[1];
+            Square to_square = static_cast<Square>( (algebraic_move[4] - '1') * NUM_FILES + ('h' - algebraic_move[3]) );
+            Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & file_masks[from_file] & get_occupancy_mask(board, piece, to_square) ) );
+            return {from_square, to_square, CAPTURE};
+        }
+    }
+    if (algebraic_move[3] == 'x')
+    {
+        Square from_square = static_cast<Square>( (algebraic_move[2] - '1') * NUM_FILES + ('h' - algebraic_move[1]) );
+        Square to_square = static_cast<Square>( (algebraic_move[5] - '1') * NUM_FILES + ('h' - algebraic_move[4]) );
+        return {from_square, to_square, CAPTURE};
+    }
+
+    if (algebraic_move.size() >= 5)
+    {
+        if (algebraic_move[1] >= 'a' && algebraic_move[1] <= 'h' && algebraic_move[2] >= '1' && algebraic_move[2] <= '8' && algebraic_move[3] >= 'a' && algebraic_move[3] <= 'h' && algebraic_move[4] >= '1' && algebraic_move[4] <= '8')
+        {
+            Square from_square = static_cast<Square>( (algebraic_move[2] - '1') * NUM_FILES + ('h' - algebraic_move[1]) );
+            Square to_square = static_cast<Square>( (algebraic_move[4] - '1') * NUM_FILES + ('h' - algebraic_move[3]) );
+            return {from_square, to_square, QUIET};
+        }
+    }
+    if (algebraic_move.size() >= 4)
+    {
+        if (algebraic_move[1] >= '1' && algebraic_move[1] <= '8' && algebraic_move[2] >= 'a' && algebraic_move[2] <= 'h' && algebraic_move[3] >= '1' && algebraic_move[3] <= '8')
+        {
+            int from_rank = algebraic_move[1] - '1';
+            Square to_square = static_cast<Square>( (algebraic_move[3] - '1') * NUM_FILES + ('h' - algebraic_move[2]) );
+            Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & rank_masks[from_rank] & get_occupancy_mask(board, piece, to_square) ) );
+            return {from_square, to_square, QUIET};
+        }
+
+        if (algebraic_move[1] >= 'a' && algebraic_move[1] <= 'h' && algebraic_move[2] >= 'a' && algebraic_move[2] <= 'h' && algebraic_move[3] >= '1' && algebraic_move[3] <= '8')
+        {
+            int from_file = 'h' - algebraic_move[1];
+            Square to_square = static_cast<Square>( (algebraic_move[3] - '1') * NUM_FILES + ('h' - algebraic_move[2]) );
+            Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & file_masks[from_file] & get_occupancy_mask(board, piece, to_square) ) );
+            return {from_square, to_square, QUIET};
+        }
+    }
+    Square to_square = static_cast<Square>( (algebraic_move[2] - '1') * NUM_FILES + ('h' - algebraic_move[1]) );
+    Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & get_occupancy_mask(board, piece, to_square) ) );
+    return {from_square, to_square, QUIET};
+}
+
+void Board::pgn_to_opening_book(string file_name)
+{
+    // open file
+    ifstream file(file_name);
+
+    // init board and line we're currently reading in
+    string line;
+    Board board;
+
+    // print out file name we're reading
+    cout << "Reading: " << file_name << endl;
+
+    // loop thru lines in file and develop full pgns
+    vector<string> full_pgns;
+    string current_pgn = ""; 
+    while (getline(file, line))
+    {
+        // skip metadata
+        if (!line.empty() && line[0] == '[') 
+        {
+            if (current_pgn != "") full_pgns.push_back(current_pgn);
+            current_pgn = "";
+            continue;
+        }
+        line.erase(remove(line.begin(), line.end(), '\r'), line.end());
+        current_pgn += line + " ";
+    }
+
+    if (current_pgn != "") full_pgns.push_back(current_pgn);
+
+    // process each game
+    for (int i = 0; i < full_pgns.size(); i++)
+    {
+        // reset game
+        string pgn = full_pgns[i];
+        board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+        // iterate until end
+        while (pgn.size() > 0)
+        {
+            // remove any leading space characters
+            while (pgn[0] == ' ') pgn.erase(0, 1);
+
+            // find next space and extract token
+            int space_index = pgn.find(' ');
+            string token = pgn.substr(0, space_index);
+            pgn.erase(0, space_index);
+
+            // remove number from token
+            int dot_index = token.find('.');
+            token.erase(0, dot_index+1);
+
+            if (token != "" && token != "1/2-1/2" && token != "1-0" && token != "0-1")
+            {
+                Move move = interpret_algebraic_move(board, token);
+                Color move_making_side = board.get_side_to_move();
+                board.make_move(move);
+
+                // assert that this move is legal
+                if (board.in_check(move_making_side))
+                {
+                    cout << "Error. Illegal move made." << endl;
+                }
+            }
+        }
+    }
 }
 
 void setup()
