@@ -95,6 +95,7 @@ class Board
 
         // opening book generation
         static u64 get_occupancy_mask(Board& board, Piece piece, Square sq);
+        static Move get_legal_move_from_occupancy(Board& board, Piece moving_piece, Square to_square, MoveType move_type, u64 mask);
         static Move interpret_algebraic_move(Board& board, string algebraic_move);
         static void pgn_to_opening_book(string file_name);
 };

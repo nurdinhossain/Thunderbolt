@@ -995,6 +995,36 @@ u64 Board::get_occupancy_mask(Board& board, Piece piece, Square sq)
     }
 }
 
+Move Board::get_legal_move_from_occupancy(Board& board, Piece moving_piece, Square to_square, MoveType move_type, u64 mask)
+{
+    MoveList moves;
+    board.generate_pseudo_legal_moves(moves);
+
+    for (int i = 0; i < moves.count; i++)
+    {
+        Move m = moves.moves[i];
+        Color side = board.get_side_to_move();
+
+        if (m.to != to_square) continue;
+        if (m.move_type != move_type) continue;
+        if (board.piece_at_square_for_side(m.from, side) != moving_piece) continue;
+        if ((mask & (1ULL << m.from)) == 0) continue;
+
+        PreviousState state = board.make_move(m);
+        if (board.in_check(side))
+        {
+            board.unmake_move(m, state);
+            continue;
+        }
+
+        board.unmake_move(m, state);
+        return m;
+    }
+
+    cout << "No legal move found." << endl;
+    return {null, null, QUIET};
+}
+
 Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
 {
     // pawn moves
@@ -1143,8 +1173,7 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
     if (algebraic_move[1] == 'x')
     {
         Square to_square = static_cast<Square>( (algebraic_move[3] - '1') * NUM_FILES + ('h' - algebraic_move[2]) );
-        Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & get_occupancy_mask(board, piece, to_square) ) );
-        return {from_square, to_square, CAPTURE};
+        return get_legal_move_from_occupancy(board, piece, to_square, CAPTURE, board.get_piece_occupancy(board.get_side_to_move(), piece) & get_occupancy_mask(board, piece, to_square));
     }
     if (algebraic_move[2] == 'x')
     {
@@ -1152,19 +1181,18 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
         {
             int from_rank = algebraic_move[1] - '1';
             Square to_square = static_cast<Square>( (algebraic_move[4] - '1') * NUM_FILES + ('h' - algebraic_move[3]) );
-            Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & rank_masks[from_rank] & get_occupancy_mask(board, piece, to_square) ) );
-            return {from_square, to_square, CAPTURE};
+            return get_legal_move_from_occupancy(board, piece, to_square, CAPTURE, board.get_piece_occupancy(board.get_side_to_move(), piece) & rank_masks[from_rank] & get_occupancy_mask(board, piece, to_square));
         }
 
         if (algebraic_move[1] >= 'a' && algebraic_move[1] <= 'h' && algebraic_move[3] >= 'a' && algebraic_move[3] <= 'h' && algebraic_move[4] >= '1' && algebraic_move[4] <= '8')
         {
             int from_file = 'h' - algebraic_move[1];
             Square to_square = static_cast<Square>( (algebraic_move[4] - '1') * NUM_FILES + ('h' - algebraic_move[3]) );
-            Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & file_masks[from_file] & get_occupancy_mask(board, piece, to_square) ) );
-            return {from_square, to_square, CAPTURE};
+            return get_legal_move_from_occupancy(board, piece, to_square, CAPTURE, board.get_piece_occupancy(board.get_side_to_move(), piece) & file_masks[from_file] & get_occupancy_mask(board, piece, to_square));
         }
     }
-    if (algebraic_move[3] == 'x')
+
+    if (algebraic_move.size() >= 6 && algebraic_move[3] == 'x')
     {
         Square from_square = static_cast<Square>( (algebraic_move[2] - '1') * NUM_FILES + ('h' - algebraic_move[1]) );
         Square to_square = static_cast<Square>( (algebraic_move[5] - '1') * NUM_FILES + ('h' - algebraic_move[4]) );
@@ -1186,21 +1214,19 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
         {
             int from_rank = algebraic_move[1] - '1';
             Square to_square = static_cast<Square>( (algebraic_move[3] - '1') * NUM_FILES + ('h' - algebraic_move[2]) );
-            Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & rank_masks[from_rank] & get_occupancy_mask(board, piece, to_square) ) );
-            return {from_square, to_square, QUIET};
+            return get_legal_move_from_occupancy(board, piece, to_square, QUIET, board.get_piece_occupancy(board.get_side_to_move(), piece) & rank_masks[from_rank] & get_occupancy_mask(board, piece, to_square));
         }
 
         if (algebraic_move[1] >= 'a' && algebraic_move[1] <= 'h' && algebraic_move[2] >= 'a' && algebraic_move[2] <= 'h' && algebraic_move[3] >= '1' && algebraic_move[3] <= '8')
         {
             int from_file = 'h' - algebraic_move[1];
             Square to_square = static_cast<Square>( (algebraic_move[3] - '1') * NUM_FILES + ('h' - algebraic_move[2]) );
-            Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & file_masks[from_file] & get_occupancy_mask(board, piece, to_square) ) );
-            return {from_square, to_square, QUIET};
+            return get_legal_move_from_occupancy(board, piece, to_square, QUIET, board.get_piece_occupancy(board.get_side_to_move(), piece) & file_masks[from_file] & get_occupancy_mask(board, piece, to_square));
         }
     }
+
     Square to_square = static_cast<Square>( (algebraic_move[2] - '1') * NUM_FILES + ('h' - algebraic_move[1]) );
-    Square from_square = static_cast<Square>( lsb( board.get_piece_occupancy(board.get_side_to_move(), piece) & get_occupancy_mask(board, piece, to_square) ) );
-    return {from_square, to_square, QUIET};
+    return get_legal_move_from_occupancy(board, piece, to_square, QUIET, board.get_piece_occupancy(board.get_side_to_move(), piece) & get_occupancy_mask(board, piece, to_square));
 }
 
 void Board::pgn_to_opening_book(string file_name)
