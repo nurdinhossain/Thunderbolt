@@ -4,6 +4,9 @@
 #include <chrono>
 #include <fstream>
 
+// define opening book
+unordered_map<u64, vector<Move>> Board::opening_book;
+
 Board::Board()
 {
     from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -1262,12 +1265,13 @@ void Board::pgn_to_opening_book(string file_name)
     // process each game
     for (int i = 0; i < full_pgns.size(); i++)
     {
-        // reset game
+        // reset game and half moves counter
         string pgn = full_pgns[i];
         board.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        int half_moves_so_far = 0;
 
         // iterate until end
-        while (pgn.size() > 0)
+        while (pgn.size() > 0 && half_moves_so_far < OPENING_BOOK_MOVES)
         {
             // remove any leading space characters
             while (pgn[0] == ' ') pgn.erase(0, 1);
@@ -1281,17 +1285,35 @@ void Board::pgn_to_opening_book(string file_name)
             int dot_index = token.find('.');
             token.erase(0, dot_index+1);
 
+            // ingest token
             if (token != "" && token != "1/2-1/2" && token != "1-0" && token != "0-1")
             {
+                // interpret SAN -> Move
+                u64 current_hash = board.get_hash();
                 Move move = interpret_algebraic_move(board, token);
                 Color move_making_side = board.get_side_to_move();
                 board.make_move(move);
+
+                // store move in opening book as long as it doesn't exist already
+                bool is_found = false;
+                for (Move book_move : opening_book[current_hash])
+                {
+                    if (book_move.from == move.from && book_move.to == move.to && book_move.move_type == move.move_type)
+                    {
+                        is_found = true;
+                        break;
+                    }
+                }
+                if (!is_found) opening_book[current_hash].push_back(move);
 
                 // assert that this move is legal
                 if (board.in_check(move_making_side))
                 {
                     cout << "Error. Illegal move made." << endl;
                 }
+
+                // increment half_moves_so_far
+                half_moves_so_far++;
             }
         }
     }
@@ -1299,10 +1321,30 @@ void Board::pgn_to_opening_book(string file_name)
 
 void setup()
 {
+    // bitboard and zobrist setup
     generate_static_bitboards();
     generate_magics(bishop);
     generate_magics(rook);
     generate_zobrists();
+
+    // opening book setup
+    Board::pgn_to_opening_book("pgns/Belgrade2022-GP2.pgn");
+    Board::pgn_to_opening_book("pgns/Berlin2022-GP1.pgn");
+    Board::pgn_to_opening_book("pgns/Berlin2022-GP3.pgn");
+    Board::pgn_to_opening_book("pgns/Bucharest2022.pgn");
+    Board::pgn_to_opening_book("pgns/Bucharest2023.pgn");
+    Board::pgn_to_opening_book("pgns/Chennai2024.pgn");
+    Board::pgn_to_opening_book("pgns/Dusseldorf2023.pgn");
+    Board::pgn_to_opening_book("pgns/SaintLouis2022-Sinq.pgn");
+    Board::pgn_to_opening_book("pgns/SaintLouis2022.pgn");
+    Board::pgn_to_opening_book("pgns/SaintLouis2023.pgn");
+    Board::pgn_to_opening_book("pgns/Stavanger2022.pgn");
+    Board::pgn_to_opening_book("pgns/Stavanger2022a.pgn");
+    Board::pgn_to_opening_book("pgns/Stavanger2023.pgn");
+    Board::pgn_to_opening_book("pgns/Stavanger2024.pgn");
+    Board::pgn_to_opening_book("pgns/WijkaanZee2022.pgn");
+    Board::pgn_to_opening_book("pgns/WijkaanZee2023.pgn");
+    Board::pgn_to_opening_book("pgns/WijkaanZee2024.pgn");
 }
 
 /* FEN SUITE TEST */

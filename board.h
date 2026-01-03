@@ -27,6 +27,7 @@ class Board
         // opening book
         static unordered_map<u64, vector<Move>> opening_book;
     public:   
+        // constructors
         Board();
         Board(string fen);
 
