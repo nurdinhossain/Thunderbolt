@@ -1319,6 +1319,12 @@ void Board::pgn_to_opening_book(string file_name)
     }
 }
 
+Move Board::get_book_move(u64 hash)
+{
+    if (opening_book.find(hash) == opening_book.end()) return {null, null, QUIET};
+    return opening_book[hash][rng() % opening_book[hash].size()];
+}
+
 void setup()
 {
     // bitboard and zobrist setup

@@ -4,6 +4,9 @@
 int main()
 {
     setup();
+    Board board("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3");
+    Move m = Board::get_book_move(board.get_hash());
+    cout << stringify_square(m.from) << stringify_square(m.to) << endl;
 
     /*Board board;
     cout << board.to_fen() << endl;
