@@ -1002,6 +1002,8 @@ Move Board::get_legal_move_from_occupancy(Board& board, Piece moving_piece, Squa
 {
     MoveList moves;
     board.generate_pseudo_legal_moves(moves);
+    Move final_move = {null, null, QUIET};
+    int valid_moves = 0;
 
     for (int i = 0; i < moves.count; i++)
     {
@@ -1021,11 +1023,13 @@ Move Board::get_legal_move_from_occupancy(Board& board, Piece moving_piece, Squa
         }
 
         board.unmake_move(m, state);
-        return m;
+        final_move = m;
+        valid_moves++;
     }
 
-    cout << "No legal move found." << endl;
-    return {null, null, QUIET};
+    if (valid_moves == 0) cout << "No legal move found." << endl;
+    else if (valid_moves > 1) cout << "Move found is disambiguous." << endl;
+    return final_move;
 }
 
 Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
@@ -1051,29 +1055,36 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
             Square to_square = static_cast<Square>(to_rank * NUM_FILES + to_file);
 
             // check if this is en passant
-            if (board.piece_at_square_for_side(to_square, static_cast<Color>(1-board.get_side_to_move())) == none) return {from_square, to_square, EN_PASSANT_CAPTURE};
+            if (board.piece_at_square_for_side(to_square, static_cast<Color>(1-board.get_side_to_move())) == none) return get_legal_move_from_occupancy(board, pawn, to_square, EN_PASSANT_CAPTURE, 1ULL << from_square);
 
             // check if this is a promo capture
             if (to_rank == rank_8 || to_rank == rank_1)
             {
+                MoveType move_flag = QUIET;
                 switch (algebraic_move[5])
                 {
                     case 'N':
-                        return {from_square, to_square, KNIGHT_PROMOTION_CAPTURE};
+                        move_flag = KNIGHT_PROMOTION_CAPTURE;
+                        break;
                     case 'B':
-                        return {from_square, to_square, BISHOP_PROMOTION_CAPTURE};
+                        move_flag = BISHOP_PROMOTION_CAPTURE;
+                        break;
                     case 'R':
-                        return {from_square, to_square, ROOK_PROMOTION_CAPTURE};
+                        move_flag = ROOK_PROMOTION_CAPTURE;
+                        break;
                     case 'Q':
-                        return {from_square, to_square, QUEEN_PROMOTION_CAPTURE};
+                        move_flag = QUEEN_PROMOTION_CAPTURE;
+                        break;
                     default:
-                        cout << "ERROR" << endl;
-                        return {null, null, QUIET};
+                        cout << "Error in deducing promotion capture" << endl;
+                        break;
                 }
+
+                return get_legal_move_from_occupancy(board, pawn, to_square, move_flag, 1ULL << from_square);
             }
 
             // otherise, this is a regular capture
-            return {from_square, to_square, CAPTURE};
+            return get_legal_move_from_occupancy(board, pawn, to_square, CAPTURE, 1ULL << from_square);
         }
 
         // otherwise, this is a quiet pawn push or promotion
@@ -1091,7 +1102,7 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
                 {
                     Square from_square = static_cast<Square>((to_rank - 2) * NUM_FILES + from_file);
                     Square to_square = static_cast<Square>(to_rank * NUM_FILES + to_file);
-                    return {from_square, to_square, DOUBLE_PAWN_PUSH};
+                    return get_legal_move_from_occupancy(board, pawn, to_square, DOUBLE_PAWN_PUSH, 1ULL << from_square);
                 }
             }
             else
@@ -1102,7 +1113,7 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
                 {
                     Square from_square = static_cast<Square>((to_rank + 2) * NUM_FILES + from_file);
                     Square to_square = static_cast<Square>(to_rank * NUM_FILES + to_file);
-                    return {from_square, to_square, DOUBLE_PAWN_PUSH};
+                    return get_legal_move_from_occupancy(board, pawn, to_square, DOUBLE_PAWN_PUSH, 1ULL << from_square);
                 }
             }
 
@@ -1112,24 +1123,34 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
             // check for promotion
             if (to_rank == rank_1 || to_rank == rank_8)
             {
+                MoveType move_flag = QUIET;
+
+                // set proper promotion flag
                 switch (algebraic_move[3])
                 {
                     case 'N':
-                        return {from_square, to_square, KNIGHT_PROMOTION};
+                        move_flag = KNIGHT_PROMOTION;
+                        break; 
                     case 'B':
-                        return {from_square, to_square, BISHOP_PROMOTION};
+                        move_flag = BISHOP_PROMOTION;
+                        break;
                     case 'R':
-                        return {from_square, to_square, ROOK_PROMOTION};
+                        move_flag = ROOK_PROMOTION;
+                        break;
                     case 'Q':
-                        return {from_square, to_square, QUEEN_PROMOTION};
+                        move_flag = QUEEN_PROMOTION;
+                        break;
                     default:
-                        cout << "ERROR" << endl;
-                        return {null, null, QUIET};
+                        cout << "Error in deducing promotion piece" << endl;
+                        break;
                 }
+                
+                // promotion
+                return get_legal_move_from_occupancy(board, pawn, to_square, move_flag, 1ULL << from_square);
             }
 
             // single push
-            return {from_square, to_square, QUIET};
+            return get_legal_move_from_occupancy(board, pawn, to_square, QUIET, 1ULL << from_square);
         }
     }
 
@@ -1138,13 +1159,13 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
     {
         if ((algebraic_move.size() == 3 || algebraic_move[3] != '-'))
         {
-            if (board.get_side_to_move() == WHITE) return {e1, g1, KING_CASTLE};
-            else return {e8, g8, KING_CASTLE};
+            if (board.get_side_to_move() == WHITE) return get_legal_move_from_occupancy(board, king, g1, KING_CASTLE, board.get_piece_occupancy(WHITE, king));
+            else return get_legal_move_from_occupancy(board, king, g8, KING_CASTLE, board.get_piece_occupancy(BLACK, king));
         }
         else
         {
-            if (board.get_side_to_move() == WHITE) return {e1, c1, QUEEN_CASTLE};
-            else return {e8, c8, QUEEN_CASTLE}; 
+            if (board.get_side_to_move() == WHITE) return get_legal_move_from_occupancy(board, king, c1, QUEEN_CASTLE, board.get_piece_occupancy(WHITE, king));
+            else return get_legal_move_from_occupancy(board, king, c8, QUEEN_CASTLE, board.get_piece_occupancy(BLACK, king));
         }
     }
 
@@ -1170,7 +1191,7 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
             break;
         default:
             piece = none;
-            cout << "Error" << endl;
+            cout << "Error in deducing moving piece" << endl;
             break;
     }
     if (algebraic_move[1] == 'x')
@@ -1199,7 +1220,7 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
     {
         Square from_square = static_cast<Square>( (algebraic_move[2] - '1') * NUM_FILES + ('h' - algebraic_move[1]) );
         Square to_square = static_cast<Square>( (algebraic_move[5] - '1') * NUM_FILES + ('h' - algebraic_move[4]) );
-        return {from_square, to_square, CAPTURE};
+        return get_legal_move_from_occupancy(board, piece, to_square, CAPTURE, 1ULL << from_square);
     }
 
     if (algebraic_move.size() >= 5)
@@ -1208,7 +1229,7 @@ Move Board::interpret_algebraic_move(Board& board, string algebraic_move)
         {
             Square from_square = static_cast<Square>( (algebraic_move[2] - '1') * NUM_FILES + ('h' - algebraic_move[1]) );
             Square to_square = static_cast<Square>( (algebraic_move[4] - '1') * NUM_FILES + ('h' - algebraic_move[3]) );
-            return {from_square, to_square, QUIET};
+            return get_legal_move_from_occupancy(board, piece, to_square, QUIET, 1ULL << from_square);
         }
     }
     if (algebraic_move.size() >= 4)
