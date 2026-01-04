@@ -902,6 +902,42 @@ bool Board::is_insufficient_material()
     return side_occupancy[WHITE] == piece_occupancies[WHITE][king] && side_occupancy[BLACK] == piece_occupancies[BLACK][king];
 }
 
+int Board::num_legal_moves()
+{
+    MoveList moves;
+    Color side = side_to_move;
+    int legal_moves = 0;
+    generate_pseudo_legal_moves(moves);
+
+    for (int i = 0; i < moves.count; i++)
+    {
+        Move m = moves.moves[i];
+
+        PreviousState state = make_move(m);
+        if (in_check(side))
+        {
+            unmake_move(m, state);
+            continue;
+        }
+
+        unmake_move(m, state);
+        legal_moves++;
+    }
+
+    return legal_moves;
+}
+
+bool Board::is_drawn()
+{
+    if (is_50_move_draw() || is_repeat() || is_insufficient_material()) return true;
+    return num_legal_moves() == 0 && !in_check(side_to_move);
+}
+
+bool Board::is_lost()
+{
+    return num_legal_moves() == 0 && in_check(side_to_move);
+}
+
 /* TESTING */
 int Board::perft(int depth)
 {

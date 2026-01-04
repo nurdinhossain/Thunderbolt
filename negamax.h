@@ -9,13 +9,14 @@ typedef struct SearchStats {
 class Negamax : public Search
 {
     private:
-        Evaluate eval;
-        Move best_move;
         SearchStats stats;
     public:
+        // constructor
         Negamax();
+
+        // search
         int search(Board& board, int depth, int ply) override;
 
-        Move get_best_move();
+        // getters 
         SearchStats get_stats();
 };

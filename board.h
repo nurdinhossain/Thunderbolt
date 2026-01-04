@@ -85,6 +85,11 @@ class Board
         bool is_repeat();
         bool is_insufficient_material();
 
+        // check if this game state is final
+        int num_legal_moves();
+        bool is_drawn();
+        bool is_lost();
+
         // methods for testing
         int perft(int depth);
         void run_suite(vector<string>& fens, vector<int>& depths);
