@@ -1,12 +1,6 @@
-#include "negamax.h"
+#include "alpha_beta_search.h"
 
-Negamax::Negamax()
-{
-    stats.nodes_searched = 0;
-    time_control = 1000; // 1 second by default
-}
-
-int Negamax::search(Board& board, int alpha, int beta, int depth, int ply)
+int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
 {
     // check for time
     if (time_exceeded())
@@ -21,7 +15,7 @@ int Negamax::search(Board& board, int alpha, int beta, int depth, int ply)
     if (depth == 0) return Evaluate::eval(board);
 
     // generate pseudo legal moves
-    int max = -MAX_BOUND;
+    int best_score = -MAX_BOUND;
     int legal_moves = 0;
     MoveList moves;
     board.generate_pseudo_legal_moves(moves);
@@ -34,21 +28,28 @@ int Negamax::search(Board& board, int alpha, int beta, int depth, int ply)
         PreviousState prev = board.make_move(m);
 
         // evaluate move if its legal
+        int move_score = -MAX_BOUND;
         if ( !board.in_check( static_cast<Color>( 1-board.get_side_to_move() ) ) )
         {
             legal_moves++;
-            int score = -search(board, alpha, beta, depth-1, ply+1); // alpha and beta are unused in this basic negamax function
-
-            // if score better than current best, make this our best score and best move if ply == 0
-            if (score > max)
-            {
-                if (ply == 0) best_move = m;
-                max = score;
-            }
+            move_score = -search(board, -beta, -alpha, depth-1, ply+1);
         }
 
         // undo move
         board.unmake_move(m, prev);
+
+        // if score better than current best score, make this our best score and best move if ply == 0
+        if (move_score > best_score)
+        {
+            if (ply == 0) best_move = m;
+            best_score = move_score;
+
+            // better score found, update alpha
+            alpha = max(alpha, best_score);
+        }
+        
+        // beta cutoff
+        if (alpha >= beta) return alpha; 
     }
 
     // address checkmate and draws
@@ -60,10 +61,5 @@ int Negamax::search(Board& board, int alpha, int beta, int depth, int ply)
 
     if (board.is_50_move_draw() || board.is_insufficient_material() || board.is_repeat()) return DRAW_SCORE;
 
-    return max; 
-}
-
-SearchStats Negamax::get_stats()
-{
-    return stats;
+    return best_score; 
 }

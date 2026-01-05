@@ -8,14 +8,14 @@ typedef struct SearchStats {
 
 class Negamax : public Search
 {
-    private:
+    protected:
         SearchStats stats;
     public:
         // constructor
         Negamax();
 
         // search
-        int search(Board& board, int depth, int ply) override;
+        int search(Board& board, int alpha, int beta, int depth, int ply) override;
 
         // getters 
         SearchStats get_stats();

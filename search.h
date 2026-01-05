@@ -24,7 +24,7 @@ class Search
         }
 
         // search
-        virtual int search(Board& board, int depth, int ply) = 0;
+        virtual int search(Board& board, int alpha, int beta, int depth, int ply) = 0;
         virtual Move deepening_search(Board& board)
         {   
             // start timer for search
@@ -35,7 +35,7 @@ class Search
             for (int i = 1; i < 99; i++)
             {
                 // search
-                int score = search(board, i, 0);
+                int score = search(board, -MAX_BOUND, MAX_BOUND, i, 0);
 
                 // if we exceed our time limit, stop searching 
                 if (time_exceeded()) 
