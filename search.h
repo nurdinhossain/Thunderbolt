@@ -5,6 +5,8 @@
 
 typedef struct SearchFlags {
     bool quiesce;
+
+    bool check_extend;
 } SearchFlags;
 
 class Search

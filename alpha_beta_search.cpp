@@ -90,7 +90,8 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
         if ( !board.in_check( static_cast<Color>( 1-board.get_side_to_move() ) ) )
         {
             legal_moves++;
-            move_score = -search(board, -beta, -alpha, depth-1, ply+1);
+            int extension = get_extension(board);
+            move_score = -search(board, -beta, -alpha, depth-1+extension, ply+1);
         }
 
         // undo move
@@ -118,4 +119,13 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
     }
 
     return best_score; 
+}
+
+int AlphaBeta::get_extension(Board& board)
+{
+    int extension = 0;
+
+    if (search_flags.check_extend && board.in_check(board.get_side_to_move())) extension++;
+
+    return extension;
 }
