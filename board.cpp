@@ -382,169 +382,199 @@ bool Board::in_check(Color side)
     return side_attacked_on_square(side, static_cast<Square>(lsb(piece_occupancies[side][king])));
 }
 
-void Board::add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type)
-{
-    int from_rank = from_square / NUM_FILES;
-
-    while (attacked_pieces > 0)
-    {
-        // get next attacked piece
-        Square attacked_square = static_cast<Square>(lsb(attacked_pieces));
-        int attacked_rank = attacked_square / NUM_FILES;
-
-        // generate move and add to array
-        if (attacking_piece == pawn && (attacked_rank == rank_1 || attacked_rank == rank_8))
-        {
-            // promotions
-            if (type == CAPTURE)
-            {
-                moves.add({from_square, attacked_square, KNIGHT_PROMOTION_CAPTURE});
-                moves.add({from_square, attacked_square, BISHOP_PROMOTION_CAPTURE});
-                moves.add({from_square, attacked_square, ROOK_PROMOTION_CAPTURE});
-                moves.add({from_square, attacked_square, QUEEN_PROMOTION_CAPTURE});
-            }
-            else 
-            {
-                moves.add({from_square, attacked_square, KNIGHT_PROMOTION});
-                moves.add({from_square, attacked_square, BISHOP_PROMOTION});
-                moves.add({from_square, attacked_square, ROOK_PROMOTION});
-                moves.add({from_square, attacked_square, QUEEN_PROMOTION});
-            }
-        }
-
-        // double pawn push
-        else if (attacking_piece == pawn && abs(attacked_square - from_square) == 16)
-        {
-            moves.add({from_square, attacked_square, DOUBLE_PAWN_PUSH});
-        }
-
-        // standard quiet move
-        else
-        {
-            moves.add({from_square, attacked_square, type});
-        }
-
-        // reset lsb
-        attacked_pieces &= (attacked_pieces - 1);
-    }
-}
-
-void Board::generate_normal_moves(MoveList &moves, Piece moving_piece, MoveType type)
-{
-    // get occupancy for current side-to-move
-    u64 pieces = piece_occupancies[side_to_move][moving_piece];
-    Color enemy_color = static_cast<Color>(1-side_to_move);
-    u64 enemy_occupancy = side_occupancy[enemy_color];
-    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
-
-    // iterate through all pieces
-    while (pieces > 0)
-    {
-        // get next piece
-        Square piece_square = static_cast<Square>(lsb(pieces));
-        
-        // get move mask for this piece
-        u64 move_mask = get_move_mask(moving_piece, piece_square, full_occupancy, side_to_move, type);
-
-        // if move type is capture, then get mask of attacks landing on enemy pieces
-        if (type == CAPTURE)
-        {
-            u64 attacked_pieces = move_mask & enemy_occupancy;
-            add_normal_moves(moves, piece_square, attacked_pieces, moving_piece, type);
-        }
-        else
-        {
-            u64 quiet_mask = move_mask & ~full_occupancy;
-            add_normal_moves(moves, piece_square, quiet_mask, moving_piece, type);
-        }
-
-        // reset lsb
-        pieces &= (pieces - 1);
-    }
-}
-
 /* METHODS FOR MOVE GENERATION */
-
-// capture moves
-void Board::generate_pawn_attacks(MoveList &moves)
+void Board::add_moves(MoveList &moves, Square from_square, u64 to_squares_bitboard, MoveType type)
 {
-    generate_normal_moves(moves, pawn, CAPTURE);
+    while (to_squares_bitboard > 0)
+    {
+        Square to_square = static_cast<Square>(lsb(to_squares_bitboard));
+
+        moves.add({from_square, to_square, type});
+
+        to_squares_bitboard &= (to_squares_bitboard - 1);
+    }
 }
 
-void Board::generate_knight_attacks(MoveList &moves)
+// normal moves
+void Board::generate_pawn_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, knight, CAPTURE);
+    // get separate bitboards for pawn promotions, pawn double pushes, and pawn single pushes
+    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
+    u64 pawns = piece_occupancies[side_to_move][pawn];
+    u64 promo_pawns = pawns & rank_masks[rank_7 - 5 * side_to_move];
+    u64 starting_pawns = pawns & rank_masks[rank_2 + 5 * side_to_move];
+    u64 single_push_pawns = pawns ^ promo_pawns ^ starting_pawns;
+
+    while (single_push_pawns > 0)
+    {
+        Square from = static_cast<Square>(lsb(single_push_pawns));
+
+        u64 to_squares = pawn_pushes[side_to_move][from] & ~full_occupancy;
+        u64 captures = pawn_attacks[side_to_move][from] & side_occupancy[1-side_to_move];
+        if (to_squares > 0)
+        {
+            Square to = static_cast<Square>(lsb(to_squares));
+            moves.add({from, to, QUIET});
+        }
+        add_moves(moves, from, captures, CAPTURE);
+
+        single_push_pawns &= (single_push_pawns - 1); 
+    }
+
+    while (starting_pawns > 0)
+    {
+        Square from = static_cast<Square>(lsb(starting_pawns));
+
+        u64 to_squares = get_rook_attack(from, full_occupancy ^ (1ULL << from)) & pawn_pushes[side_to_move][from] & ~full_occupancy;
+        u64 double_push_squares = to_squares & rank_masks[rank_4 + 1 * side_to_move];
+        u64 single_push_squares = to_squares ^ double_push_squares;
+        u64 captures = pawn_attacks[side_to_move][from] & side_occupancy[1-side_to_move];
+
+        if (double_push_squares > 0)
+        {
+            Square to = static_cast<Square>(lsb(double_push_squares));
+            moves.add({from, to, DOUBLE_PAWN_PUSH});
+        }
+
+        if (single_push_squares > 0)
+        {
+            Square to = static_cast<Square>(lsb(single_push_squares));
+            moves.add({from, to, QUIET});
+        }
+        add_moves(moves, from, captures, CAPTURE);
+
+        starting_pawns &= (starting_pawns - 1);
+    }
+
+    while (promo_pawns > 0)
+    {
+        Square from = static_cast<Square>(lsb(promo_pawns));
+
+        u64 to_squares = pawn_pushes[side_to_move][from] & ~full_occupancy;
+        u64 captures = pawn_attacks[side_to_move][from] & side_occupancy[1-side_to_move];
+
+        if (to_squares > 0)
+        {
+            Square to = static_cast<Square>(lsb(to_squares));
+            moves.add({from, to, KNIGHT_PROMOTION});
+            moves.add({from, to, BISHOP_PROMOTION});
+            moves.add({from, to, ROOK_PROMOTION});
+            moves.add({from, to, QUEEN_PROMOTION});
+        }
+
+        while (captures > 0)
+        {
+            Square to = static_cast<Square>(lsb(captures));
+
+            moves.add({from, to, KNIGHT_PROMOTION_CAPTURE});
+            moves.add({from, to, BISHOP_PROMOTION_CAPTURE});
+            moves.add({from, to, ROOK_PROMOTION_CAPTURE});
+            moves.add({from, to, QUEEN_PROMOTION_CAPTURE});
+
+            captures &= (captures - 1);
+        }
+
+        promo_pawns &= (promo_pawns - 1);
+    }
 }
 
-void Board::generate_bishop_attacks(MoveList &moves)
+void Board::generate_knight_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, bishop, CAPTURE);
+    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
+    u64 knights = piece_occupancies[side_to_move][knight];
+
+    while (knights > 0)
+    {
+        Square from = static_cast<Square>(lsb(knights));
+
+        u64 full_attack_mask = knight_attacks[from];
+        u64 capture_mask = full_attack_mask & side_occupancy[1-side_to_move];
+        u64 quiet_mask = full_attack_mask & ~full_occupancy;
+        add_moves(moves, from, capture_mask, CAPTURE);
+        add_moves(moves, from, quiet_mask, QUIET);
+
+        knights &= (knights - 1);
+    }
 }
 
-void Board::generate_rook_attacks(MoveList &moves)
+void Board::generate_bishop_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, rook, CAPTURE);
+    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
+    u64 bishops = piece_occupancies[side_to_move][bishop];
+
+    while (bishops > 0)
+    {
+        Square from = static_cast<Square>(lsb(bishops));
+
+        u64 full_attack_mask = get_bishop_attack(from, full_occupancy ^ (1ULL << from));
+        u64 capture_mask = full_attack_mask & side_occupancy[1-side_to_move];
+        u64 quiet_mask = full_attack_mask & ~full_occupancy;
+        add_moves(moves, from, capture_mask, CAPTURE);
+        add_moves(moves, from, quiet_mask, QUIET);
+
+        bishops &= (bishops - 1);
+    }
 }
 
-void Board::generate_queen_attacks(MoveList &moves)
+void Board::generate_rook_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, queen, CAPTURE);
+    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
+    u64 rooks = piece_occupancies[side_to_move][rook];
+
+    while (rooks > 0)
+    {
+        Square from = static_cast<Square>(lsb(rooks));
+
+        u64 full_attack_mask = get_rook_attack(from, full_occupancy ^ (1ULL << from));
+        u64 capture_mask = full_attack_mask & side_occupancy[1-side_to_move];
+        u64 quiet_mask = full_attack_mask & ~full_occupancy;
+        add_moves(moves, from, capture_mask, CAPTURE);
+        add_moves(moves, from, quiet_mask, QUIET);
+
+        rooks &= (rooks - 1);
+    }
 }
 
-void Board::generate_king_attacks(MoveList &moves)
+void Board::generate_queen_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, king, CAPTURE);
+    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
+    u64 queens = piece_occupancies[side_to_move][queen];
+
+    while (queens > 0)
+    {
+        Square from = static_cast<Square>(lsb(queens));
+
+        u64 full_attack_mask = get_queen_attack(from, full_occupancy ^ (1ULL << from));
+        u64 capture_mask = full_attack_mask & side_occupancy[1-side_to_move];
+        u64 quiet_mask = full_attack_mask & ~full_occupancy;
+        add_moves(moves, from, capture_mask, CAPTURE);
+        add_moves(moves, from, quiet_mask, QUIET);
+
+        queens &= (queens - 1);
+    }
 }
 
-void Board::generate_attacks(MoveList &moves)
+void Board::generate_king_moves(MoveList &moves)
 {
-    generate_pawn_attacks(moves);
-    generate_knight_attacks(moves);
-    generate_bishop_attacks(moves);
-    generate_rook_attacks(moves);
-    generate_queen_attacks(moves);
-    generate_king_attacks(moves);
+    u64 full_occupancy = side_occupancy[WHITE] | side_occupancy[BLACK];
+    u64 kings = piece_occupancies[side_to_move][king];
+
+    Square from = static_cast<Square>(lsb(kings));
+    u64 full_attack_mask = king_attacks[from];
+    u64 capture_mask = full_attack_mask & side_occupancy[1-side_to_move];
+    u64 quiet_mask = full_attack_mask & ~full_occupancy;
+    add_moves(moves, from, capture_mask, CAPTURE);
+    add_moves(moves, from, quiet_mask, QUIET);
 }
 
-// quiet moves
-void Board::generate_pawn_pushes(MoveList &moves)
+void Board::generate_normal_moves(MoveList &moves)
 {
-    generate_normal_moves(moves, pawn, QUIET);
-}
-
-void Board::generate_knight_quiet_moves(MoveList &moves)
-{
-    generate_normal_moves(moves, knight, QUIET);
-}
-
-void Board::generate_bishop_quiet_moves(MoveList &moves)
-{
-    generate_normal_moves(moves, bishop, QUIET);
-}
-
-void Board::generate_rook_quiet_moves(MoveList &moves)
-{
-    generate_normal_moves(moves, rook, QUIET);
-}
-
-void Board::generate_queen_quiet_moves(MoveList &moves)
-{
-    generate_normal_moves(moves, queen, QUIET);
-}
-
-void Board::generate_king_quiet_moves(MoveList &moves)
-{
-    generate_normal_moves(moves, king, QUIET);
-}
-
-void Board::generate_quiet_moves(MoveList &moves)
-{
-    generate_pawn_pushes(moves);
-    generate_knight_quiet_moves(moves);
-    generate_bishop_quiet_moves(moves);
-    generate_rook_quiet_moves(moves);
-    generate_queen_quiet_moves(moves);
-    generate_king_quiet_moves(moves);
+    generate_pawn_moves(moves);
+    generate_knight_moves(moves);
+    generate_bishop_moves(moves);
+    generate_rook_moves(moves);
+    generate_queen_moves(moves);
+    generate_king_moves(moves);
 }
 
 // special moves
@@ -630,8 +660,7 @@ void Board::generate_castles(MoveList &moves)
 
 void Board::generate_pseudo_legal_moves(MoveList &moves)
 {
-    generate_attacks(moves);
-    generate_quiet_moves(moves);
+    generate_normal_moves(moves);
     generate_en_passant(moves);
     generate_castles(moves);
 }

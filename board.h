@@ -48,33 +48,23 @@ class Board
         /* METHODS FOR MOVE GENERATION */
 
         // helper methods for extracting moves from bitboard masks
-        void add_normal_moves(MoveList &moves, Square from_square, u64 attacked_pieces, Piece attacking_piece, MoveType type);
-        void generate_normal_moves(MoveList &moves, Piece moving_piece, MoveType type);
+        void add_moves(MoveList &moves, Square from_square, u64 to_squares_bitboard, MoveType type);
 
-        // capture moves (not including en passant)
-        void generate_pawn_attacks(MoveList &moves);
-        void generate_knight_attacks(MoveList &moves);
-        void generate_bishop_attacks(MoveList &moves);
-        void generate_rook_attacks(MoveList &moves);
-        void generate_queen_attacks(MoveList &moves);
-        void generate_king_attacks(MoveList &moves);
-        void generate_attacks(MoveList &moves);
-
-        // quiet moves
-        void generate_pawn_pushes(MoveList &moves);
-        void generate_knight_quiet_moves(MoveList &moves);
-        void generate_bishop_quiet_moves(MoveList &moves);
-        void generate_rook_quiet_moves(MoveList &moves);
-        void generate_queen_quiet_moves(MoveList &moves);
-        void generate_king_quiet_moves(MoveList &moves);
-        void generate_quiet_moves(MoveList &moves);
-
-        // generate all moves
-        void generate_pseudo_legal_moves(MoveList &moves);
+        // normal moves
+        void generate_pawn_moves(MoveList &moves);
+        void generate_knight_moves(MoveList &moves);
+        void generate_bishop_moves(MoveList &moves);
+        void generate_rook_moves(MoveList &moves);
+        void generate_queen_moves(MoveList &moves);
+        void generate_king_moves(MoveList &moves);
+        void generate_normal_moves(MoveList &moves);
 
         // special moves (en passant, castling)
         void generate_en_passant(MoveList &moves);
         void generate_castles(MoveList &moves);
+
+        // generate all moves
+        void generate_pseudo_legal_moves(MoveList &moves);
 
         // make/un-make moves
         PreviousState make_move(Move move);
