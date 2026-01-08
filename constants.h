@@ -7,6 +7,7 @@ using namespace std;
 #define NUM_SQUARES 64
 #define NUM_RANKS 8
 #define NUM_FILES 8
+#define NUM_DIRECTIONS 8 
 #define NUM_PIECES 6
 #define NUM_COLORS 2
 
@@ -55,6 +56,11 @@ typedef enum File {
     file_h, file_g, file_f, file_e, file_d, file_c, file_b, file_a
 } File;
 
+// directions
+typedef enum Direction {
+    north, north_east, east, south_east, south, south_west, west, north_west
+} Direction;
+
 // rank bitboards
 extern u64 rank_masks[NUM_RANKS];
 extern u64 rank_neighbor_masks[NUM_RANKS];
@@ -81,6 +87,9 @@ extern u64 bishop_masks[NUM_SQUARES];
 
 // sliding attack masks
 extern u64 sliding_masks[NUM_SQUARES];
+
+// directional masks
+extern u64 directional_masks[NUM_DIRECTIONS][NUM_SQUARES];
 
 // zobrist hashing
 extern u64 piece_zobrists[NUM_COLORS][NUM_PIECES][NUM_SQUARES];
@@ -113,6 +122,9 @@ void generate_bishop_masks();
 
 // sliding mask generation
 void generate_sliding_masks();
+
+// directional mask generation
+void generate_directional_masks();
 
 // generate all static bitboards
 void generate_static_bitboards();

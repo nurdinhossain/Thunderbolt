@@ -12,6 +12,7 @@ u64 king_attacks[NUM_SQUARES] = {0};
 u64 rook_masks[NUM_SQUARES] = {0};
 u64 bishop_masks[NUM_SQUARES] = {0};
 u64 sliding_masks[NUM_SQUARES] = {0};
+u64 directional_masks[NUM_DIRECTIONS][NUM_SQUARES] = {0};
 
 u64 piece_zobrists[NUM_COLORS][NUM_PIECES][NUM_SQUARES] = {0};
 u64 side_zobrist = 0;
@@ -185,6 +186,34 @@ void generate_sliding_masks()
     }
 }
 
+void generate_directional_masks()
+{
+    int rank_offsets[NUM_DIRECTIONS] = {1, 1, 0, -1, -1, -1, 0, 1};
+    int file_offsets[NUM_DIRECTIONS] = {0, -1, -1, -1, 0, 1, 1, 1};
+
+    for (int sq = 0; sq < NUM_SQUARES; sq++)
+    {
+        int rank = sq / NUM_FILES;
+        int file = sq % NUM_FILES;
+
+        for (int direction = 0; direction < NUM_DIRECTIONS; direction++)
+        {
+            int temp_rank = rank; 
+            int temp_file = file;
+            u64 full_attack_mask = (1ULL << (temp_rank * NUM_FILES + temp_file)); // mask contains starting square to begin with
+
+            while (temp_rank >= 0 && temp_rank < NUM_RANKS && temp_file >= 0 && temp_file < NUM_FILES)
+            {
+                full_attack_mask ^= (1ULL << (temp_rank * NUM_FILES + temp_file));
+                temp_rank += rank_offsets[direction];
+                temp_file += file_offsets[direction];
+            }
+
+            directional_masks[direction][sq] = full_attack_mask;
+        }
+    }
+}
+
 void generate_static_bitboards()
 {
     /*
@@ -194,6 +223,7 @@ void generate_static_bitboards()
         rook_masks depends on rank_masks and file_masks, and bishop_masks is independent of all other masks
         sliding_masks depends on file_masks and rank_masks
         pawn_pushes is independent of all other masks
+        directional_masks is independent of all other masks
     */
     generate_static_masks();
     generate_king_attacks();
@@ -203,6 +233,7 @@ void generate_static_bitboards()
     generate_rook_masks();
     generate_bishop_masks();
     generate_sliding_masks();
+    generate_directional_masks();
 }
 
 void generate_zobrists()
