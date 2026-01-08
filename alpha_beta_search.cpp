@@ -9,10 +9,10 @@ int AlphaBeta::quiesce(Board& board, int alpha, int beta)
     // static eval = stand pat score
     int best_value = static_eval;
 
-    if( best_value >= beta )
-        return best_value;
-    if( best_value > alpha )
-        alpha = best_value;
+    // see if this position is already "too good"
+    alpha = max(alpha, best_value);
+    if( alpha >= beta )
+        return alpha;
 
     // examine all captures
     MoveList moves;
@@ -38,16 +38,14 @@ int AlphaBeta::quiesce(Board& board, int alpha, int beta)
             board.unmake_move(m, prev);
 
             // check for cutoffs
-            if( score >= beta )
-                return score;
-            if( score > best_value )
-                best_value = score;
-            if( score > alpha )
-                alpha = score;
+            best_value = max(best_value, score);
+            alpha = max(alpha, best_value);
+            if( alpha >= beta )
+                return alpha;
         }
     }
 
-    return best_value;
+    return alpha;
 }
 
 int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
@@ -118,7 +116,7 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
         return DRAW_SCORE;
     }
 
-    return best_score; 
+    return alpha; 
 }
 
 int AlphaBeta::get_extension(Board& board)
