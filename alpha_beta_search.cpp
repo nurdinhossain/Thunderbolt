@@ -23,7 +23,7 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
     int legal_moves = 0;
     MoveList moves;
     board.generate_pseudo_legal_moves(moves);
-    order_moves(board, moves);
+    order_moves(board, moves, move_order_flags);
 
     // loop through each move
     for (int i = 0; i < moves.count; i++)

@@ -2,12 +2,12 @@
 
 int piece_values[NUM_PIECES] = {100, 300, 300, 500, 900, 1000};
 
-int get_move_value(Board& board, Move move)
+int get_move_value(Board& board, Move move, MoveOrderFlags flags)
 {
     int score = 0;
 
     // MVV-LVA score
-    if (move.move_type == CAPTURE || move.move_type >= KNIGHT_PROMOTION_CAPTURE)
+    if (flags.mvv_lva && (move.move_type == CAPTURE || move.move_type >= KNIGHT_PROMOTION_CAPTURE))
     {
         Piece attacker = board.piece_at_square_for_side(move.from, board.get_side_to_move());
         Piece victim = board.piece_at_square_for_side(move.to, static_cast<Color>(1-board.get_side_to_move()));
@@ -15,7 +15,7 @@ int get_move_value(Board& board, Move move)
     }
 
     // Promotion score
-    if (move.move_type >= KNIGHT_PROMOTION)
+    if (flags.promotion && move.move_type >= KNIGHT_PROMOTION)
     {
         if (move.move_type >= KNIGHT_PROMOTION_CAPTURE)
         {
@@ -30,13 +30,13 @@ int get_move_value(Board& board, Move move)
     return score; 
 }
 
-void order_moves(Board& board, MoveList& moves)
+void order_moves(Board& board, MoveList& moves, MoveOrderFlags flags)
 {
     // store score for each move
     int scores[moves.count];
     for (int i = 0; i < moves.count; i++)
     {
-        scores[i] = get_move_value(board, moves.moves[i]);
+        scores[i] = get_move_value(board, moves.moves[i], flags);
     }
 
     // apply basic insertion sort on move list

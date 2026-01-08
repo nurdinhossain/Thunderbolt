@@ -1,5 +1,6 @@
 #pragma once
 #include "board.h"
+#include "moveorder.h"
 #include <iostream>
 
 class Search
@@ -11,12 +12,18 @@ class Search
         // time control
         std::chrono::steady_clock::time_point start_time;
         int time_control;
+
+        // move order flags
+        MoveOrderFlags move_order_flags;
     public:
         // getters
         virtual Move get_best_move() { return best_move; }
 
-        // time
+        // setters
+        virtual void set_move_order_flags(MoveOrderFlags new_flags) { move_order_flags = new_flags; }
         virtual void set_time_control(int time) { time_control = time; }
+
+        // time
         virtual void start_timer() { start_time = std::chrono::steady_clock::now(); }
         virtual bool time_exceeded() 
         {
