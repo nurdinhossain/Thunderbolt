@@ -697,30 +697,33 @@ PreviousState Board::make_move(Move move)
         hash ^= piece_zobrists[side_to_move][from_piece][to_square];
 
         // deal with all the other fun stuff 
-        if (move_type == DOUBLE_PAWN_PUSH) en_passant_square = static_cast<Square>(to_square + en_passant_offset);
-
-        else if (move_type == KING_CASTLE)
+        if (move_type > QUIET)
         {
-            // move king side rook
-            recalibrate_occupancies(side_to_move, rook, static_cast<Square>(h1 + side_offset));
-            recalibrate_occupancies(side_to_move, rook, static_cast<Square>(f1 + side_offset));
-            hash ^= piece_zobrists[side_to_move][rook][h1 + side_offset];
-            hash ^= piece_zobrists[side_to_move][rook][f1 + side_offset];
-        }
+            if (move_type == DOUBLE_PAWN_PUSH) en_passant_square = static_cast<Square>(to_square + en_passant_offset);
 
-        else if (move_type == QUEEN_CASTLE)
-        {
-            // move queen side rook
-            recalibrate_occupancies(side_to_move, rook, static_cast<Square>(a1 + side_offset));
-            recalibrate_occupancies(side_to_move, rook, static_cast<Square>(d1 + side_offset));
-            hash ^= piece_zobrists[side_to_move][rook][a1 + side_offset];
-            hash ^= piece_zobrists[side_to_move][rook][d1 + side_offset];
-        }
+            else if (move_type == KING_CASTLE)
+            {
+                // move king side rook
+                recalibrate_occupancies(side_to_move, rook, static_cast<Square>(h1 + side_offset));
+                recalibrate_occupancies(side_to_move, rook, static_cast<Square>(f1 + side_offset));
+                hash ^= piece_zobrists[side_to_move][rook][h1 + side_offset];
+                hash ^= piece_zobrists[side_to_move][rook][f1 + side_offset];
+            }
 
-        else if (move_type == EN_PASSANT_CAPTURE) 
-        {
-            recalibrate_occupancies(enemy_color, pawn, static_cast<Square>(to_square + en_passant_offset));
-            hash ^= piece_zobrists[enemy_color][pawn][to_square + en_passant_offset];
+            else if (move_type == QUEEN_CASTLE)
+            {
+                // move queen side rook
+                recalibrate_occupancies(side_to_move, rook, static_cast<Square>(a1 + side_offset));
+                recalibrate_occupancies(side_to_move, rook, static_cast<Square>(d1 + side_offset));
+                hash ^= piece_zobrists[side_to_move][rook][a1 + side_offset];
+                hash ^= piece_zobrists[side_to_move][rook][d1 + side_offset];
+            }
+
+            else if (move_type == EN_PASSANT_CAPTURE) 
+            {
+                recalibrate_occupancies(enemy_color, pawn, static_cast<Square>(to_square + en_passant_offset));
+                hash ^= piece_zobrists[enemy_color][pawn][to_square + en_passant_offset];
+            }
         }
     }
     else if (move_type >= KNIGHT_PROMOTION)
@@ -837,23 +840,26 @@ void Board::unmake_move(Move move, PreviousState prev_state)
         recalibrate_occupancies(move_color, moving_piece, to_square);
 
         // deal with all the other fun stuff
-        if (move_type == KING_CASTLE)
+        if (move_type > QUIET)
         {
-            // move king side rook
-            recalibrate_occupancies(move_color, rook, static_cast<Square>(h1 + side_offset));
-            recalibrate_occupancies(move_color, rook, static_cast<Square>(f1 + side_offset));
-        }
+            if (move_type == KING_CASTLE)
+            {
+                // move king side rook
+                recalibrate_occupancies(move_color, rook, static_cast<Square>(h1 + side_offset));
+                recalibrate_occupancies(move_color, rook, static_cast<Square>(f1 + side_offset));
+            }
 
-        else if (move_type == QUEEN_CASTLE)
-        {
-            // move queen side rook
-            recalibrate_occupancies(move_color, rook, static_cast<Square>(a1 + side_offset));
-            recalibrate_occupancies(move_color, rook, static_cast<Square>(d1 + side_offset));
-        }
+            else if (move_type == QUEEN_CASTLE)
+            {
+                // move queen side rook
+                recalibrate_occupancies(move_color, rook, static_cast<Square>(a1 + side_offset));
+                recalibrate_occupancies(move_color, rook, static_cast<Square>(d1 + side_offset));
+            }
 
-        else if (move_type == EN_PASSANT_CAPTURE) 
-        {
-            recalibrate_occupancies(side_to_move, pawn, static_cast<Square>(to_square + en_passant_offset));
+            else if (move_type == EN_PASSANT_CAPTURE) 
+            {
+                recalibrate_occupancies(side_to_move, pawn, static_cast<Square>(to_square + en_passant_offset));
+            }
         }
     }
     else if (move_type >= KNIGHT_PROMOTION)
