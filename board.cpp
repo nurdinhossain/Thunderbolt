@@ -588,21 +588,7 @@ void Board::generate_en_passant(MoveList &moves)
     int ep_file = en_passant_square % NUM_FILES;
 
     // check if there are enemy pawns in the same rank and neighboring files as the pawn that just double pushed
-    u64 attacker_pawns;
-    if (ep_rank == rank_3)
-    {
-        // side-to-move is black
-        int victim_index = en_passant_square + 8;
-        u64 pawns = piece_occupancies[BLACK][pawn];
-        attacker_pawns = rank_masks[rank_4] & file_neighbor_masks[ep_file] & pawns;
-    }
-    else
-    {
-        // side-to-move is white
-        int victim_index = en_passant_square - 8;
-        u64 pawns = piece_occupancies[WHITE][pawn];
-        attacker_pawns = rank_masks[rank_5] & file_neighbor_masks[ep_file] & pawns;
-    }
+    u64 attacker_pawns = rank_masks[rank_5 - 1 * side_to_move] & file_neighbor_masks[ep_file] & piece_occupancies[side_to_move][pawn];
 
     // add all possible en passant moves
     while (attacker_pawns > 0)
