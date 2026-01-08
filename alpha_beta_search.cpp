@@ -2,6 +2,9 @@
 
 int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
 {
+    // address basic draw conditions
+    if (board.is_50_move_draw() || board.is_insufficient_material() || board.is_repeat()) return DRAW_SCORE;
+    
     // check for time
     if (time_exceeded())
     {
@@ -58,8 +61,6 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
         if (board.in_check(board.get_side_to_move())) return -CHECKMATE_SCORE + ply;
         return DRAW_SCORE;
     }
-
-    if (board.is_50_move_draw() || board.is_insufficient_material() || board.is_repeat()) return DRAW_SCORE;
 
     return best_score; 
 }
