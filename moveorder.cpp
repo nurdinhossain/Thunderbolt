@@ -36,7 +36,7 @@ void swap(MoveList& moves, vector<int>& scores, int i, int j)
     scores[j] = score_temp;
 }
 
-int partition(Board& board, MoveList& moves, vector<int>& scores, int low, int high)
+int partition(MoveList& moves, vector<int>& scores, int low, int high)
 {
     // choose pivot
     int pivot = scores[high];
@@ -59,7 +59,7 @@ void sort_moves(Board& board, MoveList& moves, vector<int>& scores, int low, int
 {
     if (low < high) 
     {
-        int pi = partition(board, moves, scores, low, high);
+        int pi = partition(moves, scores, low, high);
         sort_moves(board, moves, scores, low, pi - 1, flags);
         sort_moves(board, moves, scores, pi + 1, high, flags);
     }

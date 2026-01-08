@@ -15,6 +15,6 @@ int get_move_score(Board& board, Move move, MoveOrderFlags flags);
 
 // quick sort
 void swap(MoveList& moves, vector<int>& scores, int i, int j);
-int partition(Board& board, MoveList& moves, vector<int>& scores, int low, int high);
+int partition(MoveList& moves, vector<int>& scores, int low, int high);
 void sort_moves(Board& board, MoveList& moves, vector<int>& scores, int low, int high, MoveOrderFlags flags);
 void order_moves(Board& board, MoveList& moves, MoveOrderFlags flags);
