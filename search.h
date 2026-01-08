@@ -5,7 +5,10 @@
 class Search
 {
     protected:
+        // store best move
         Move best_move;
+
+        // time control
         std::chrono::steady_clock::time_point start_time;
         int time_control;
     public:
