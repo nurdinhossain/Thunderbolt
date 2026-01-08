@@ -6,7 +6,7 @@ class AlphaBeta : public Negamax
 {
     public:
         // constructor
-        AlphaBeta() { move_order_flags = {true, true}; }
+        AlphaBeta() { move_order_flags = {true, true}; search_flags = {true}; }
 
         // search
         int quiesce(Board& board, int alpha, int beta);

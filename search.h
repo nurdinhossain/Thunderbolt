@@ -3,6 +3,10 @@
 #include "moveorder.h"
 #include <iostream>
 
+typedef struct SearchFlags {
+    bool quiesce;
+} SearchFlags;
+
 class Search
 {
     protected:
@@ -13,14 +17,16 @@ class Search
         std::chrono::steady_clock::time_point start_time;
         int time_control;
 
-        // move order flags
+        // flags
         MoveOrderFlags move_order_flags;
+        SearchFlags search_flags;
     public:
         // getters
         virtual Move get_best_move() { return best_move; }
 
         // setters
         virtual void set_move_order_flags(MoveOrderFlags new_flags) { move_order_flags = new_flags; }
+        virtual void set_search_flags(SearchFlags new_flags) { search_flags = new_flags; }
         virtual void set_time_control(int time) { time_control = time; }
 
         // time
