@@ -286,3 +286,9 @@ string stringify_square(Square sq)
 
     return string_sq;
 }
+
+bool is_mate_score(int score)
+{
+    if (score < 0) return score < -CHECKMATE_SCORE + CHECKMATE_WINDOW;
+    return score > CHECKMATE_SCORE - CHECKMATE_WINDOW;
+}

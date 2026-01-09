@@ -16,11 +16,12 @@ using namespace std;
 
 #define MAX_MOVES 256
 #define MAX_HASH_HISTORY 1024
-
 #define OPENING_BOOK_MOVES 12
+#define TT_ENTRIES 1048576 // about 32 MB
 
 #define MAX_BOUND 99999
 #define CHECKMATE_SCORE 9999
+#define CHECKMATE_WINDOW 500
 #define DRAW_SCORE 0
 
 // colors
@@ -137,3 +138,6 @@ u64 rng();
 
 // return string version of square
 string stringify_square(Square sq);
+
+// determine if score is mate score
+bool is_mate_score(int score);

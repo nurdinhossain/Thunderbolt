@@ -17,7 +17,7 @@ int AlphaBeta::quiesce(Board& board, int alpha, int beta)
     // examine all captures
     MoveList moves;
     board.generate_pseudo_legal_moves(moves);
-    order_moves(board, moves, move_order_flags);
+    order_moves(board, moves, move_order_flags, {null, null, QUIET});
     
     for (int i = 0; i < moves.count; i++)
     {
@@ -51,12 +51,30 @@ int AlphaBeta::quiesce(Board& board, int alpha, int beta)
 int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
 {
     // address basic draw conditions
-    if (board.is_50_move_draw() || board.is_insufficient_material() || board.is_repeat()) return DRAW_SCORE;
+    if (board.is_50_move_draw() || board.is_insufficient_material() || board.is_repeat()) 
+    {
+        tt.add(board.get_hash(), {null, null, QUIET}, EXACT, DRAW_SCORE, depth, ply);
+        return DRAW_SCORE;
+    }
     
     // check for time
     if (time_exceeded())
     {
         return DRAW_SCORE;
+    }
+
+    // track original alpha
+    int original_alpha = alpha;
+
+    // check for transposition table hit
+    TTEntry tt_hit = tt.probe(board.get_hash(), ply);
+    Move best_move_in_this_position = tt_hit.best_move;
+    if (tt_hit.depth >= depth)
+    {
+        if (tt_hit.node_type == EXACT) return tt_hit.score;
+        else if (tt_hit.node_type == LOWER_BOUND) alpha = max(alpha, tt_hit.score);
+        else beta = min(beta, tt_hit.score);
+        if (alpha >= beta) return alpha;
     }
 
     // increment nodes searched
@@ -74,7 +92,7 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
     int legal_moves = 0;
     MoveList moves;
     board.generate_pseudo_legal_moves(moves);
-    order_moves(board, moves, move_order_flags);
+    order_moves(board, moves, move_order_flags, best_move_in_this_position);
 
     // loop through each move
     for (int i = 0; i < moves.count; i++)
@@ -100,21 +118,37 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
         {
             if (ply == 0) best_move = m;
             best_score = move_score;
+            best_move_in_this_position = m;
 
             // better score found, update alpha
             alpha = max(alpha, best_score);
         }
         
         // beta cutoff
-        if (alpha >= beta) return alpha; 
+        if (alpha >= beta) 
+        {
+            tt.add(board.get_hash(), best_move_in_this_position, LOWER_BOUND, alpha, depth, ply);
+            return alpha; 
+        }
     }
 
     // address checkmate and draws
     if (legal_moves == 0)
     {
-        if (board.in_check(board.get_side_to_move())) return -CHECKMATE_SCORE + ply;
-        return DRAW_SCORE;
+        int score;
+        if (board.in_check(board.get_side_to_move())) score = -CHECKMATE_SCORE + ply;
+        else score = DRAW_SCORE;
+
+        tt.add(board.get_hash(), best_move_in_this_position, EXACT, score, depth, ply);
+
+        return score;
     }
+
+    // if alpha improves, but not too much, store exact score
+    if (alpha > original_alpha) tt.add(board.get_hash(), best_move_in_this_position, EXACT, alpha, depth, ply);
+
+    // if no move improved alpha, then alpha acts as an upper bound to the true score of this position 
+    else tt.add(board.get_hash(), best_move_in_this_position, UPPER_BOUND, alpha, depth, ply);
 
     return alpha; 
 }
