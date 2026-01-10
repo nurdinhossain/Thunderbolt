@@ -140,7 +140,7 @@ void Board::from_fen(string fen)
     for (int i = 0; i < NUM_COLORS; i++)
     {
         if (king_castle_ability[i]) hash ^= king_castle_zobrists[i];
-        if (queen_castle_ability[i]) hash ^= queen_castle_ability[i];
+        if (queen_castle_ability[i]) hash ^= queen_castle_zobrists[i];
     }
     if (en_passant_square != null)
     {
