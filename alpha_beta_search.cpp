@@ -53,14 +53,13 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
     // address basic draw conditions
     if (board.is_50_move_draw() || board.is_insufficient_material() || board.is_repeat()) 
     {
-        tt.add(board.get_hash(), {null, null, QUIET}, EXACT, DRAW_SCORE, depth, ply);
         return DRAW_SCORE;
     }
     
     // check for time
     if (time_exceeded())
     {
-        return DRAW_SCORE;
+        return -TIME_SCORE;
     }
 
     // track original alpha
@@ -69,7 +68,7 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
     // check for transposition table hit
     TTEntry tt_hit = tt.probe(board.get_hash(), ply);
     Move best_move_in_this_position = tt_hit.best_move;
-    if (tt_hit.depth >= depth)
+    if (search_flags.transposition && tt_hit.depth >= depth)
     {
         if (tt_hit.node_type == EXACT) return tt_hit.score;
         else if (tt_hit.node_type == LOWER_BOUND) alpha = max(alpha, tt_hit.score);

@@ -5,8 +5,8 @@
 
 typedef struct SearchFlags {
     bool quiesce;
-
     bool check_extend;
+    bool transposition;
 } SearchFlags;
 
 class Search

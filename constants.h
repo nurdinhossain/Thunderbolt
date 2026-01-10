@@ -20,6 +20,7 @@ using namespace std;
 #define TT_ENTRIES 1048576 // about 32 MB
 
 #define MAX_BOUND 99999
+#define TIME_SCORE 999999
 #define CHECKMATE_SCORE 9999
 #define CHECKMATE_WINDOW 500
 #define DRAW_SCORE 0

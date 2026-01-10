@@ -18,6 +18,9 @@ void TranspositionTable::add(u64 hash, Move best_move, TTFlag node_type, int sco
     u64 index = hash % TT_ENTRIES;
     TTEntry& entry = entries[index];
 
+    // if score is time-control score, don't add entry
+    if (abs(score) == TIME_SCORE) return;
+
     // if entry has matching hash, only replace info if depth is greater; otherwise, follow always-replace scheme
     if ((hash == entry.hash && depth >= entry.depth) || hash != entry.hash)
     {
