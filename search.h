@@ -22,6 +22,9 @@ class Search
         MoveOrderFlags move_order_flags;
         SearchFlags search_flags;
     public:
+        // constructor/destructor
+        virtual ~Search() = default;
+
         // getters
         virtual Move get_best_move() { return best_move; }
 
