@@ -19,7 +19,7 @@ void TranspositionTable::add(u64 hash, Move best_move, TTFlag node_type, int sco
     TTEntry& entry = entries[index];
 
     // if score is time-control score, don't add entry
-    if ((abs(score) == TIME_SCORE) || score == DRAW_SCORE) return;
+    if ((abs(score) == TIME_SCORE)) return;
 
     // follow always-replace scheme
     entry.hash = hash;
