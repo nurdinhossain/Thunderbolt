@@ -19,25 +19,22 @@ void TranspositionTable::add(u64 hash, Move best_move, TTFlag node_type, int sco
     TTEntry& entry = entries[index];
 
     // if score is time-control score, don't add entry
-    if (abs(score) == TIME_SCORE) return;
+    if ((abs(score) == TIME_SCORE) || score == DRAW_SCORE) return;
 
-    // if entry has matching hash, only replace info if depth is greater; otherwise, follow always-replace scheme
-    if ((hash == entry.hash && depth >= entry.depth) || hash != entry.hash)
+    // follow always-replace scheme
+    entry.hash = hash;
+    entry.best_move = best_move;
+    entry.node_type = node_type;
+
+    // apply special logic for mating scores
+    if (is_mate_score(score))
     {
-        entry.hash = hash;
-        entry.best_move = best_move;
-        entry.node_type = node_type;
-
-        // apply special logic for mating scores
-        if (is_mate_score(score))
-        {
-            if (score < 0) entry.score = score - ply;
-            else entry.score = score + ply;
-        }
-        else entry.score = score;
-        
-        entry.depth = depth;
+        if (score < 0) entry.score = score - ply;
+        else entry.score = score + ply;
     }
+    else entry.score = score;
+    
+    entry.depth = depth;
 }
 
 TTEntry TranspositionTable::probe(u64 hash, int ply)

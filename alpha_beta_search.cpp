@@ -80,11 +80,7 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
     stats.nodes_searched++;
 
     // return static eval of position at leaf node
-    if (depth == 0) 
-    {
-        if (search_flags.quiesce) return quiesce(board, alpha, beta);
-        return Evaluate::eval(board);
-    }
+    if (depth == 0) return quiesce(board, alpha, beta);
 
     // generate pseudo legal moves
     int best_score = -MAX_BOUND;

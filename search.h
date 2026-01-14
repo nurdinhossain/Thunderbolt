@@ -4,7 +4,6 @@
 #include <iostream>
 
 typedef struct SearchFlags {
-    bool quiesce;
     bool check_extend;
     bool transposition;
 } SearchFlags;

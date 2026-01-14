@@ -9,7 +9,7 @@ class AlphaBeta : public Negamax
         TranspositionTable tt;
     public:
         // constructor
-        AlphaBeta() { move_order_flags = {true, true}; search_flags = {true, true, true}; tt.clear_table(); }
+        AlphaBeta() { move_order_flags = {true, true}; search_flags = {true, true}; tt.clear_table(); }
 
         // search
         int quiesce(Board& board, int alpha, int beta);

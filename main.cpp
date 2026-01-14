@@ -30,8 +30,9 @@ int main()
 /*
 GAUNTLET TESTING RESULTS:
 - Alpha beta pruning vs. negamax 5ms: AI 1 won 82 times and drew 12 times out of 100 rounds. This is a score of 88%.
-
-
+- Alpha beta pruning + quiesce vs. Alpha beta pruning 25 ms: AI 1 won 61 times and drew 17 times out of 100 rounds. This is a score of 69.5%.
+- Alpha beta pruning + quiesce + check extension vs. Alpha beta pruning + quiesce 25 ms: AI 1 won 59 times and drew 19 times out of 100 rounds. This is a score of 68.5%.
+- Alpha beta pruning + quiesce + check extension + TT vs. Alpha beta pruning + quiesce + check extension 25 ms: 
 */
 
     /*Board board("r1br1nk1/ppq1b1pp/2pp1p2/4p3/P2PP2N/1P2N3/1BP1RPPP/R1Q3K1 b - - 0 15");
