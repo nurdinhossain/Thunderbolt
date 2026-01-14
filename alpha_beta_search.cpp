@@ -115,7 +115,7 @@ int AlphaBeta::search(Board& board, int alpha, int beta, int depth, int ply)
             best_score = move_score;
             best_move_in_this_position = m;
 
-            // better score found, update alpha
+            // if better score found, update alpha
             alpha = max(alpha, best_score);
         }
         
